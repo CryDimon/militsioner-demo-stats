@@ -334,7 +334,7 @@ function charts(rows) {
     { name: "Demo", color: "--s1", pts: both.map((r) => [r.t, (r.demo / (b0.demo || 1) - 1) * 100]) },
     { name: "Steam", color: "--s2", pts: both.map((r) => [r.t, (r.steam / b0.steam - 1) * 100]) },
   ] : [];
-  lineChart("c-growth", growth, { zero: true, yFmt: (v) => (v > 0 ? "+" : "") + Math.round(v) + "%", tipFmt: pct });
+  lineChart("c-growth", growth, { zero: true, yFmt: (v) => (v > 0 ? "+" : "") + (Number.isInteger(v) ? v : v.toFixed(1)) + "%", tipFmt: pct });
 
   lineChart("c-share", [{ name: "Per 1M users", color: "--s1", pts: both.map((r) => [r.t, (r.demo / r.steam) * 1e6]) }],
     { fromZero: true, yFmt: (v) => fmt(v, 1), tipFmt: (v) => fmt(v, 2) });
