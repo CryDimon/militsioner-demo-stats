@@ -102,6 +102,7 @@ h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 }
 .tip b { font-weight: 600; }
 .tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+h2.section { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 24px 0 10px; }
 footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
 footer a { color: var(--ink-2); }
 details { margin-top: 16px; }
@@ -156,13 +157,27 @@ th:first-child, td:first-child { text-align: left; }
     </div>
   </section>
 
+  <h2 class="section">Longer history · SteamDB, daily, last 30 days</h2>
+  <section class="grid2">
+    <div class="card">
+      <h2>Twitch peak viewers per day</h2>
+      <div class="desc">Militsioner category, daily peak concurrent viewers.</div>
+      <div class="chart" id="c-twitch-daily"></div>
+    </div>
+    <div class="card">
+      <h2>Steam followers (main game)</h2>
+      <div class="desc">Followers of the Militsioner store page, daily.</div>
+      <div class="chart" id="c-followers"></div>
+    </div>
+  </section>
+
   <details>
     <summary>Data table (last 50 samples)</summary>
     <div class="tablewrap"><table id="table"></table></div>
   </details>
 
   <footer>
-    Updates automatically every ~10 minutes. Sources:
+    Updates automatically every ~10 minutes. Demo players before 10 Oct 12:48 (Tbilisi) and the daily charts come from SteamDB chart exports. Sources:
     <a href="https://store.steampowered.com/app/4627010/" target="_blank" rel="noopener">Steam demo page</a> (players, reviews),
     <a href="https://store.steampowered.com/stats/" target="_blank" rel="noopener">Steam stats</a> (users online),
     <a href="https://store.steampowered.com/search/?filter=popularwishlist" target="_blank" rel="noopener">Steam top wishlisted</a>,
@@ -174,6 +189,7 @@ th:first-child, td:first-child { text-align: left; }
 <script>
 const H = 3600e3;
 let DATA = [];
+let DAILY = null;
 let RANGE = 24;
 try { const r = localStorage.getItem("range"); if (r !== null) RANGE = Number(r); } catch (e) {}
 
@@ -217,7 +233,7 @@ function tiles(rows) {
     ["Steam reviews", rv && rv.rev_total ? `${Math.round((rv.rev_pos / rv.rev_total) * 100)}%` : "—",
       rv ? `${rv.rev_desc || "—"} · ${fmt(rv.rev_total)} reviews` : ""],
     ["Survey rating", sv && sv.sv_avg != null ? `${sv.sv_avg.toFixed(2)} / 5` : "—", sv ? `${fmt(sv.sv_n)} responses` : ""],
-    ["Twitch", tw ? (tw.tw_channels ? fmt(tw.tw_viewers) + " viewers" : "offline") : "—",
+    ["Twitch viewers", tw ? (tw.tw_channels ? fmt(tw.tw_viewers) : "offline") : "—",
       tw ? `${fmt(tw.tw_channels)} live · ${fmt(tw.tw_followers)} followers` : ""],
     ["Share of Steam", share != null ? fmt(share, 1) : "—", "demo players per 1M online"],
   ];
@@ -231,6 +247,7 @@ function niceTicks(lo, hi, n = 4) {
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
   const out = [];
   for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+  out.step = step;
   return out;
 }
 
@@ -264,24 +281,26 @@ function lineChart(id, series, opt = {}) {
   const add = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
 
   // grid + y ticks
-  for (const v of niceTicks(lo, hi)) {
+  const ticks = niceTicks(lo, hi);
+  for (const v of ticks) {
     add("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 && opt.zero ? css("--axis") : css("--grid"), "stroke-width": 1 });
     const tx = add("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") });
-    tx.textContent = opt.yFmt ? opt.yFmt(v) : fmt(v);
+    tx.textContent = opt.yFmt ? opt.yFmt(v, ticks.step) : fmt(v);
   }
   // x ticks
   const long = t1 - t0 > 30 * H;
+  const dayOnly = opt.daily;
   const nx = Math.max(2, Math.min(6, Math.floor((W - m.l - m.r) / 90)));
   for (let i = 0; i <= nx; i++) {
     const t = t0 + ((t1 - t0) * i) / nx;
     const tx = add("text", { x: X(t), y: Hh - 6, "text-anchor": i === 0 ? "start" : i === nx ? "end" : "middle", "font-size": 11, fill: css("--muted") });
-    tx.textContent = timeFmt(t, long);
+    tx.textContent = dayOnly ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : timeFmt(t, long);
   }
   // lines (break on gaps longer than 40 min)
   for (const s of series) {
     let d = "", prev = null;
     for (const p of s.pts) {
-      d += (prev && p[0] - prev[0] < 40 * 60e3 ? "L" : "M") + X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1);
+      d += (prev && (opt.daily || p[0] - prev[0] < 40 * 60e3) ? "L" : "M") + X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1);
       prev = p;
     }
     add("path", { d, fill: "none", stroke: css(s.color), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" });
@@ -313,7 +332,7 @@ function lineChart(id, series, opt = {}) {
     });
     vline.setAttribute("x1", X(tx)); vline.setAttribute("x2", X(tx));
     hover.setAttribute("opacity", 1);
-    tip.innerHTML = `<div style="opacity:.7">${timeFmt(tx, true)}</div>` + html;
+    tip.innerHTML = `<div style="opacity:.7">${opt.daily ? new Date(tx).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : timeFmt(tx, true)}</div>` + html;
     const x = Math.min(Math.max(X(tx), 70), W - 70);
     tip.style.left = x + "px"; tip.style.top = (m.t + 4) + "px"; tip.style.opacity = 1;
   }
@@ -334,7 +353,7 @@ function charts(rows) {
     { name: "Demo", color: "--s1", pts: both.map((r) => [r.t, (r.demo / (b0.demo || 1) - 1) * 100]) },
     { name: "Steam", color: "--s2", pts: both.map((r) => [r.t, (r.steam / b0.steam - 1) * 100]) },
   ] : [];
-  lineChart("c-growth", growth, { zero: true, yFmt: (v) => (v > 0 ? "+" : "") + (Number.isInteger(v) ? v : v.toFixed(1)) + "%", tipFmt: pct });
+  lineChart("c-growth", growth, { zero: true, yFmt: (v, step) => (v > 0 ? "+" : "") + v.toFixed(Math.max(0, Math.min(3, -Math.floor(Math.log10(step))))) + "%", tipFmt: pct });
 
   lineChart("c-share", [{ name: "Per 1M users", color: "--s1", pts: both.map((r) => [r.t, (r.demo / r.steam) * 1e6]) }],
     { fromZero: true, yFmt: (v) => fmt(v, 1), tipFmt: (v) => fmt(v, 2) });
@@ -353,10 +372,20 @@ function table() {
     rows.map((r) => "<tr>" + cols.map((c) => `<td>${c[1](r)}</td>`).join("") + "</tr>").join("");
 }
 
+function dailyCharts() {
+  if (!DAILY) return;
+  const from = Date.now() - 30 * 24 * H;
+  const tw = DAILY.twitch_peak.filter((p) => p[0] >= from);
+  const fo = DAILY.followers.filter((p) => p[0] >= from);
+  lineChart("c-twitch-daily", [{ name: "Peak viewers", color: "--s1", pts: tw }], { fromZero: true, daily: true });
+  lineChart("c-followers", [{ name: "Followers", color: "--s1", pts: fo }], { daily: true });
+}
+
 function render() {
   const rows = inRange();
   tiles(rows);
   charts(rows);
+  dailyCharts();
   table();
   const last = DATA[DATA.length - 1];
   document.getElementById("updated").textContent = last
@@ -368,6 +397,7 @@ async function load() {
   try {
     const r = await fetch("data/history.json?ts=" + Date.now(), { cache: "no-store" });
     DATA = (await r.json()).sort((a, b) => a.t - b.t);
+    if (!DAILY) { try { DAILY = await (await fetch("data/steamdb-daily.json", { cache: "no-store" })).json(); } catch (e) {} }
   } catch (e) {
     document.getElementById("updated").textContent = "Could not load data";
   }

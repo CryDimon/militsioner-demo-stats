@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["index.html", ".github/workflows/collect.yml", "collect.mjs"]
+    paths: ["index.html", ".github/workflows/collect.yml", "collect.mjs", "data/backfill.json", "data/steamdb-daily.json"]
 
 permissions:
   contents: write
@@ -37,16 +37,16 @@ jobs:
         run: |
           git config user.name "stats-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/history.json
+          git add -A data
           git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)" || echo "no changes"
           git pull --rebase -X ours origin main || true
           git push || echo "push failed, next run will retry"
 
       - name: Prepare site
         run: |
-          mkdir -p _site/data
+          mkdir -p _site
           cp index.html _site/
-          cp data/history.json _site/data/
+          cp -r data _site/
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

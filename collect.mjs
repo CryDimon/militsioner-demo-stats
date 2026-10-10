@@ -1,7 +1,7 @@
 // Collects one sample of Militsioner demo stats and appends it to data/history.json.
 // Runs in GitHub Actions on a schedule (Node 20+, no dependencies).
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 
 const DEMO_ID = 4627010; // Militsioner Demo
 const GAME_ID = 1373530; // Militsioner
@@ -43,7 +43,7 @@ const steamTotal = () =>
     const j = await (await get("https://store.steampowered.com/stats/userdata.json")).json();
     const s = j.find((x) => /logged in/i.test(x.label)) || j[0];
     const last = s.data[s.data.length - 1];
-    return { t: last[0], users: last[1] };
+    return { t: last[0], users: last[1], series: s.data };
   });
 
 // Position in Steam's own "Top wishlisted" list (first 1000 places).
@@ -131,6 +131,28 @@ try {
   history = JSON.parse(await readFile(FILE, "utf8"));
 } catch {}
 history.push(row);
+
+// One-off back-fill: merge data/backfill.json (e.g. SteamDB export) into history, then remove it.
+try {
+  const extra = JSON.parse(await readFile("data/backfill.json", "utf8"));
+  const near = (t) => history.some((r) => r.src !== "steamdb" && Math.abs(r.t - t) < 5 * 60e3);
+  const have = new Set(history.map((r) => r.t));
+  for (const r of extra) if (!have.has(r.t) && !near(r.t)) history.push(r);
+  await unlink("data/backfill.json");
+  console.log(`merged back-fill: ${extra.length} rows`);
+} catch {}
+
+// Fill missing "steam" values (e.g. back-filled demo samples) from Steam's 48h series.
+if (steam && steam.series) {
+  const ser = steam.series;
+  for (const r of history) {
+    if (r.steam != null || r.t < ser[0][0] || r.t > ser[ser.length - 1][0] + 15 * 60e3) continue;
+    let best = ser[0];
+    for (const p of ser) if (Math.abs(p[0] - r.t) < Math.abs(best[0] - r.t)) best = p;
+    r.steam = best[1];
+  }
+}
+history.sort((a, b) => a.t - b.t);
 const cutoff = Date.now() - KEEP_DAYS * 864e5;
 history = history.filter((r) => r.t >= cutoff);
 await writeFile(FILE, JSON.stringify(history));
