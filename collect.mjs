@@ -78,19 +78,84 @@ const twitch = () =>
       await get("https://gql.twitch.tv/gql", {
         method: "POST",
         headers: { "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko", "Content-Type": "text/plain" },
-        body: JSON.stringify({ query: 'query{game(name:"Militsioner"){followersCount viewersCount broadcastersCount}}' }),
+        body: JSON.stringify({
+          query:
+            'query{game(name:"Militsioner"){followersCount viewersCount broadcastersCount streams(first:10){edges{node{viewersCount title language broadcaster{login displayName}}}}}}',
+        }),
       })
     ).json();
     const g = j.data && j.data.game;
-    return g ? { viewers: g.viewersCount || 0, channels: g.broadcastersCount || 0, followers: g.followersCount || 0 } : null;
+    if (!g) return null;
+    const streams = ((g.streams && g.streams.edges) || []).map((e) => ({
+      name: e.node.broadcaster ? e.node.broadcaster.displayName : "",
+      login: e.node.broadcaster ? e.node.broadcaster.login : "",
+      viewers: e.node.viewersCount || 0,
+      title: (e.node.title || "").slice(0, 120),
+      lang: e.node.language || "",
+    }));
+    return { viewers: g.viewersCount || 0, channels: g.broadcastersCount || 0, followers: g.followersCount || 0, streams };
   });
 
-const [demo, steam, rank, rev, tw] = await Promise.all([
+
+// Steam community followers of the main game (members of its community hub).
+const followers = () =>
+  safe("followers", async () => {
+    const x = await (await get(`https://steamcommunity.com/games/${GAME_ID}/memberslistxml/?xml=1`)).text();
+    const m = x.match(/<memberCount>(\d+)<\/memberCount>/);
+    return m ? Number(m[1]) : null;
+  });
+
+// All Steam reviews of the demo with playtime. Only numbers, language and topic tags are stored, no texts or names.
+const TOPICS = {
+  "Crashes": /crash|freez|вылет|краш|завис/i,
+  "Bugs": /\bbug|glitch|broken|баг|глюк|сломан/i,
+  "Performance": /\bfps|\blag|stutter|performance|optimi[sz]|оптимиз|лаг|тормоз|фриз/i,
+  "Controls & camera": /control|camera|keybind|управлен|камер/i,
+  "Too short": /too short|short demo|wanted more|коротк|мало контента/i,
+  "Confusing": /confus|unclear|didn'?t know what|no idea what|непонятн|запута/i,
+  "Saves & progress": /\bsave|progress|сохранен|прогресс/i,
+  "Translation": /translat|locali[sz]|subtitle|перевод|локализ|субтитр/i,
+  "Atmosphere": /atmospher|vibe|атмосфер/i,
+  "The Giant": /giant|policeman|militsioner|великан|гигант|милиционер/i,
+  "Want full game": /full game|wishlist|can'?t wait|полн(ую|ой) верси|жду|вишлист/i,
+};
+const reviewList = () =>
+  safe("review list", async () => {
+    const out = new Map();
+    let cursor = "*";
+    for (let page = 0; page < 100; page++) {
+      const j = await (
+        await get(
+          `https://store.steampowered.com/appreviews/${DEMO_ID}?json=1&language=all&purchase_type=all&filter=recent&num_per_page=100&cursor=${encodeURIComponent(cursor)}`
+        )
+      ).json();
+      const list = j.reviews || [];
+      for (const r of list) {
+        const text = r.review || "";
+        out.set(r.recommendationid, {
+          t: r.timestamp_created * 1000,
+          up: r.voted_up ? 1 : 0,
+          lang: r.language,
+          at: r.author ? r.author.playtime_at_review ?? null : null,
+          fo: r.author ? r.author.playtime_forever ?? null : null,
+          deck: r.primarily_steam_deck ? 1 : 0,
+          tags: Object.keys(TOPICS).filter((k) => TOPICS[k].test(text)),
+        });
+      }
+      if (!list.length || !j.cursor || j.cursor === cursor) break;
+      cursor = j.cursor;
+    }
+    return [...out.values()].sort((a, b) => a.t - b.t);
+  });
+
+const [demo, steam, rank, rev, tw, fol, revList] = await Promise.all([
   demoPlayers(),
   steamTotal(),
   wishlistRank(),
   reviews(),
   twitch(),
+  followers(),
+  reviewList(),
 ]);
 
 const row = {
@@ -104,6 +169,7 @@ const row = {
   tw_viewers: tw ? tw.viewers : null,
   tw_channels: tw ? tw.channels : null,
   tw_followers: tw ? tw.followers : null,
+  followers: fol,
 };
 console.log(JSON.stringify(row));
 
@@ -140,3 +206,8 @@ for (const r of history) { delete r.sv_n; delete r.sv_avg; }
 const cutoff = Date.now() - KEEP_DAYS * 864e5;
 history = history.filter((r) => r.t >= cutoff);
 await writeFile(FILE, JSON.stringify(history));
+
+if (revList && revList.length) {
+  await writeFile("data/reviews.json", JSON.stringify({ updated: Date.now(), topics: Object.keys(TOPICS), items: revList }));
+}
+await writeFile("data/live.json", JSON.stringify({ updated: Date.now(), twitch_streams: tw ? tw.streams : null }));

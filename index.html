@@ -102,6 +102,15 @@ h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 }
 .tip b { font-weight: 600; }
 .tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.hlist { display: grid; gap: 6px; margin-top: 4px; }
+.hrow { display: grid; grid-template-columns: minmax(90px, 140px) 1fr auto; align-items: center; gap: 10px; font-size: 12px; }
+.hrow .name { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hrow .track { position: relative; height: 10px; }
+.hrow .bar { position: absolute; left: 0; top: 0; height: 10px; border-radius: 0 4px 4px 0; }
+.hrow .num { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 64px; text-align: right; }
+.streams th:nth-child(2), .streams td:nth-child(2) { text-align: left; white-space: normal; color: var(--ink-2); }
+.streams a { color: var(--ink); }
+.note-sm { color: var(--muted); font-size: 11px; margin-top: 6px; }
 h2.section { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 24px 0 10px; }
 footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
 footer a { color: var(--ink-2); }
@@ -157,6 +166,46 @@ th:first-child, td:first-child { text-align: left; }
     </div>
   </section>
 
+
+  <h2 class="section">Playtime &amp; reviews · all time since the demo launched</h2>
+  <section class="tiles" id="tiles2"></section>
+  <section class="grid2">
+    <div class="card">
+      <h2>Playtime at review</h2>
+      <div class="desc">How long reviewers had played when they wrote the review. Short negative reviews = people drop early.</div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Positive</span><span><i style="background:var(--s2)"></i>Negative</span></div>
+      <div class="chart" id="c-playtime"></div>
+    </div>
+    <div class="card">
+      <h2>Reviews per day</h2>
+      <div class="desc">New Steam reviews of the demo by day of posting.</div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Positive</span><span><i style="background:var(--s2)"></i>Negative</span></div>
+      <div class="chart" id="c-reviews-day"></div>
+    </div>
+    <div class="card">
+      <h2>Daily peak and average players</h2>
+      <div class="desc">Per calendar day (your time). A peak that settles on a plateau = the demo keeps an audience; a steady slide = it burns out.</div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Daily peak</span><span><i style="background:var(--s2)"></i>Daily average</span></div>
+      <div class="chart" id="c-daily-players"></div>
+    </div>
+    <div class="card">
+      <h2>What reviews talk about</h2>
+      <div class="desc">Reviews mentioning each topic (keyword match in English and Russian; other languages are not tagged).</div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>In positive reviews</span><span><i style="background:var(--s2)"></i>In negative reviews</span></div>
+      <div class="hlist" id="l-topics"></div>
+    </div>
+    <div class="card">
+      <h2>Review languages</h2>
+      <div class="desc">Where reviewers come from — a hint for localisation priorities.</div>
+      <div class="hlist" id="l-langs"></div>
+    </div>
+    <div class="card">
+      <h2>Live on Twitch now</h2>
+      <div class="desc">Channels streaming the Militsioner category at the last sample.</div>
+      <div id="l-streams"></div>
+    </div>
+  </section>
+
   <h2 class="section">Longer history · SteamDB, daily, last 30 days</h2>
   <section class="grid2">
     <div class="card">
@@ -181,7 +230,8 @@ th:first-child, td:first-child { text-align: left; }
     <a href="https://store.steampowered.com/app/4627010/" target="_blank" rel="noopener">Steam demo page</a> (players, reviews),
     <a href="https://store.steampowered.com/stats/" target="_blank" rel="noopener">Steam stats</a> (users online),
     <a href="https://store.steampowered.com/search/?filter=popularwishlist" target="_blank" rel="noopener">Steam top wishlisted</a>,
-    <a href="https://www.twitch.tv/directory/category/militsioner" target="_blank" rel="noopener">Twitch category</a>.
+    <a href="https://www.twitch.tv/directory/category/militsioner" target="_blank" rel="noopener">Twitch category</a>,
+    <a href="https://steamcommunity.com/app/1373530" target="_blank" rel="noopener">Steam community hub</a> (followers).
   </footer>
 </div>
 
@@ -288,9 +338,11 @@ function lineChart(id, series, opt = {}) {
   const long = t1 - t0 > 30 * H;
   const dayOnly = opt.daily;
   const nx = Math.max(2, Math.min(6, Math.floor((W - m.l - m.r) / 90)));
-  for (let i = 0; i <= nx; i++) {
-    const t = t0 + ((t1 - t0) * i) / nx;
-    const tx = add("text", { x: X(t), y: Hh - 6, "text-anchor": i === 0 ? "start" : i === nx ? "end" : "middle", "font-size": 11, fill: css("--muted") });
+  const uniq = [...new Set(pts.map((p) => p[0]))].sort((a, b) => a - b);
+  const xt = dayOnly && uniq.length <= nx + 1 ? uniq : Array.from({ length: nx + 1 }, (_, i) => t0 + ((t1 - t0) * i) / nx);
+  for (let i = 0; i < xt.length; i++) {
+    const t = xt[i];
+    const tx = add("text", { x: X(t), y: Hh - 6, "text-anchor": i === 0 ? "start" : i === xt.length - 1 ? "end" : "middle", "font-size": 11, fill: css("--muted") });
     tx.textContent = dayOnly ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : timeFmt(t, long);
   }
   // lines (break on gaps longer than 40 min)
@@ -369,6 +421,153 @@ function table() {
     rows.map((r) => "<tr>" + cols.map((c) => `<td>${c[1](r)}</td>`).join("") + "</tr>").join("");
 }
 
+
+/* ---------- playtime, reviews, twitch ---------- */
+let REVIEWS = null, LIVE = null;
+const median = (a) => { const b = a.filter((x) => x != null).sort((x, y) => x - y); if (!b.length) return null; const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+const dur = (min) => min == null ? "—" : min < 60 ? Math.round(min) + " min" : (min / 60).toFixed(min < 600 ? 1 : 0) + " h";
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const LANG = { english: "English", russian: "Russian", schinese: "Chinese (Simpl.)", tchinese: "Chinese (Trad.)", koreana: "Korean", japanese: "Japanese",
+  german: "German", french: "French", spanish: "Spanish (Spain)", latam: "Spanish (LatAm)", brazilian: "Portuguese (Brazil)", portuguese: "Portuguese",
+  polish: "Polish", turkish: "Turkish", ukrainian: "Ukrainian", italian: "Italian", czech: "Czech", thai: "Thai", hungarian: "Hungarian", dutch: "Dutch" };
+
+function barChart(id, cats, series, opt = {}) {
+  const box = document.getElementById(id);
+  box.innerHTML = "";
+  const totals = cats.map((_, i) => series.reduce((a, s) => a + (s.vals[i] || 0), 0));
+  if (!cats.length || !Math.max(0, ...totals)) { box.innerHTML = `<div class="empty">No data yet</div>`; return; }
+  const W = box.clientWidth, Hh = box.clientHeight, m = { l: 36, r: 8, t: 10, b: 24 };
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${Hh}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", box.closest(".card").querySelector("h2").textContent);
+  const add = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
+  const ticks = niceTicks(0, Math.max(...totals) * 1.05);
+  const hi = ticks[ticks.length - 1] || 1;
+  const Y = (v) => Hh - m.b - (v / hi) * (Hh - m.t - m.b);
+  for (const v of ticks) {
+    add("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 ? css("--axis") : css("--grid") });
+    add("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") }).textContent = fmt(v);
+  }
+  const slot = (W - m.l - m.r) / cats.length, bw = Math.max(3, Math.min(36, slot * 0.7));
+  const every = Math.ceil(cats.length / Math.max(1, Math.floor((W - m.l - m.r) / 56)));
+  const tip = document.createElement("div"); tip.className = "tip";
+  cats.forEach((c, i) => {
+    const x = m.l + slot * i + (slot - bw) / 2;
+    let base = 0;
+    series.forEach((s, k) => {
+      const v = s.vals[i] || 0; if (!v) return;
+      const y1 = Y(base), y2 = Y(base + v);
+      const h = Math.max(0, y1 - y2 - (base > 0 ? 2 : 0));
+      const isTop = series.slice(k + 1).every((t) => !(t.vals[i] || 0));
+      const r = isTop ? Math.min(4, bw / 2, h) : 0;
+      const d = `M${x},${y1 - (base > 0 ? 2 : 0)}V${y1 - (base > 0 ? 2 : 0) - h + r}` + (r ? `Q${x},${y1 - (base > 0 ? 2 : 0) - h} ${x + r},${y1 - (base > 0 ? 2 : 0) - h}H${x + bw - r}Q${x + bw},${y1 - (base > 0 ? 2 : 0) - h} ${x + bw},${y1 - (base > 0 ? 2 : 0) - h + r}` : `H${x + bw}`) + `V${y1 - (base > 0 ? 2 : 0)}Z`;
+      add("path", { d, fill: css(s.color) });
+      base += v;
+    });
+    if (i % every === 0 || i === cats.length - 1)
+      add("text", { x: x + bw / 2, y: Hh - 6, "text-anchor": "middle", "font-size": 11, fill: css("--muted") }).textContent = c;
+    const hit = add("rect", { x: m.l + slot * i, y: m.t, width: slot, height: Hh - m.t - m.b, fill: "transparent" });
+    const show = () => {
+      tip.innerHTML = `<div style="opacity:.7">${esc(opt.tipCat ? opt.tipCat(c, i) : c)}</div>` +
+        series.map((s) => `<div><span class="sw" style="background:${css(s.color)}"></span>${s.name}: <b>${fmt(s.vals[i] || 0)}</b></div>`).join("");
+      tip.style.left = Math.min(Math.max(x + bw / 2, 70), W - 70) + "px"; tip.style.top = (m.t + 4) + "px"; tip.style.opacity = 1;
+    };
+    hit.addEventListener("pointerenter", show); hit.addEventListener("pointerdown", show);
+    hit.addEventListener("pointerleave", () => (tip.style.opacity = 0));
+  });
+  box.appendChild(svg); box.appendChild(tip);
+}
+
+function hlist(id, rows, series, valFmt) {
+  const el = document.getElementById(id);
+  if (!rows.length) { el.innerHTML = `<div class="note-sm">No data yet</div>`; return; }
+  const max = Math.max(1, ...rows.map((r) => series.reduce((a, s) => a + (r[s.key] || 0), 0)));
+  el.innerHTML = rows.map((r) => {
+    let left = 0;
+    const bars = series.map((s) => {
+      const w = ((r[s.key] || 0) / max) * 100;
+      const b = w ? `<div class="bar" style="left:calc(${left}% + ${left ? 2 : 0}px);width:calc(${w}% - ${left ? 2 : 0}px);background:var(${s.color})"></div>` : "";
+      left += w; return b;
+    }).join("");
+    return `<div class="hrow"><div class="name" title="${esc(r.name)}">${esc(r.name)}</div><div class="track">${bars}</div><div class="num">${valFmt(r)}</div></div>`;
+  }).join("");
+}
+
+function reviewSection() {
+  const el = document.getElementById("tiles2");
+  const items = (REVIEWS && REVIEWS.items) || [];
+  const pos = items.filter((r) => r.up), neg = items.filter((r) => !r.up);
+  const day = Date.now() - 24 * H;
+  const last24 = items.filter((r) => r.t >= day);
+  const fol = lastOf(DATA, "followers");
+  const fol0 = (() => { for (const r of DATA) if (r.followers != null && r.t >= day) return r; return null; })();
+  const deck = items.length ? (items.filter((r) => r.deck).length / items.length) * 100 : null;
+  const t = [
+    ["Median playtime at review", dur(median(items.map((r) => r.at))), `${fmt(items.length)} reviews`],
+    ["Median total playtime", dur(median(items.map((r) => r.fo))), "reviewers' playtime so far"],
+    ["Negative reviews: playtime", dur(median(neg.map((r) => r.at))), `median at review · positive: ${dur(median(pos.map((r) => r.at)))}`],
+    ["Reviews last 24h", fmt(last24.length), last24.length ? `${Math.round((last24.filter((r) => r.up).length / last24.length) * 100)}% positive` : "—"],
+    ["Steam Deck reviewers", deck == null ? "—" : fmt(deck, 0) + "%", "played mostly on Deck"],
+    ["Community followers", fol ? fmt(fol.followers) : "—", fol && fol0 && fol.followers !== fol0.followers ? `${fol.followers - fol0.followers >= 0 ? "+" : ""}${fmt(fol.followers - fol0.followers)} in 24h` : "main game, Steam community"],
+  ];
+  el.innerHTML = t.map(([l, v, n]) => `<div class="tile"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
+
+  // playtime histogram
+  const B = [[0, 15, "<15m"], [15, 30, "15–30m"], [30, 60, "30–60m"], [60, 120, "1–2h"], [120, 180, "2–3h"], [180, 300, "3–5h"], [300, 1e9, "5h+"]];
+  const bucket = (arr) => B.map(([a, b]) => arr.filter((r) => r.at != null && r.at >= a && r.at < b).length);
+  barChart("c-playtime", B.map((b) => b[2]), [
+    { name: "Positive", color: "--s1", vals: bucket(pos) },
+    { name: "Negative", color: "--s2", vals: bucket(neg) },
+  ]);
+
+  // reviews per day (local days)
+  const dkey = (t) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+  const days = [];
+  if (items.length) for (let d = dkey(items[0].t); d <= dkey(Date.now()); d += 24 * H) { const k = dkey(d + 12 * H); if (days[days.length - 1] !== k) days.push(k); }
+  const per = (arr) => days.map((k) => arr.filter((r) => dkey(r.t) === k).length);
+  const dl = (k) => new Date(k).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  barChart("c-reviews-day", days.map(dl), [
+    { name: "Positive", color: "--s1", vals: per(pos) },
+    { name: "Negative", color: "--s2", vals: per(neg) },
+  ]);
+
+  // topics
+  const topics = (REVIEWS && REVIEWS.topics) || [];
+  const trows = topics.map((k) => ({ name: k, p: pos.filter((r) => r.tags.includes(k)).length, n: neg.filter((r) => r.tags.includes(k)).length }))
+    .filter((r) => r.p + r.n > 0).sort((a, b) => b.n - a.n || b.p - a.p);
+  hlist("l-topics", trows, [{ key: "p", color: "--s1" }, { key: "n", color: "--s2" }], (r) => `${r.p} pos · ${r.n} neg`);
+
+  // languages
+  const lc = {};
+  for (const r of items) lc[r.lang] = (lc[r.lang] || 0) + 1;
+  const lrows = Object.entries(lc).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => ({ name: LANG[k] || k, v }));
+  hlist("l-langs", lrows, [{ key: "v", color: "--s1" }], (r) => `${r.v} · ${Math.round((r.v / items.length) * 100)}%`);
+
+  // twitch streams
+  const st = LIVE && LIVE.twitch_streams;
+  document.getElementById("l-streams").innerHTML = !st ? `<div class="note-sm">No data yet</div>` : !st.length ? `<div class="note-sm">Nobody is streaming right now.</div>` :
+    `<table class="streams"><tr><th>Channel</th><th>Title</th><th>Viewers</th></tr>` +
+    st.map((x) => `<tr><td><a href="https://www.twitch.tv/${encodeURIComponent(x.login)}" target="_blank" rel="noopener">${esc(x.name)}</a>${x.lang ? ` <span style="color:var(--muted)">${esc(x.lang)}</span>` : ""}</td><td>${esc(x.title)}</td><td>${fmt(x.viewers)}</td></tr>`).join("") + "</table>";
+}
+
+function dailyPlayers() {
+  const byDay = new Map();
+  for (const r of DATA) {
+    if (r.demo == null) continue;
+    const d = new Date(r.t), k = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime();
+    const e = byDay.get(k) || { peak: 0, sum: 0, n: 0 };
+    e.peak = Math.max(e.peak, r.demo); e.sum += r.demo; e.n++;
+    byDay.set(k, e);
+  }
+  const ks = [...byDay.keys()].sort((a, b) => a - b);
+  lineChart("c-daily-players", [
+    { name: "Peak", color: "--s1", pts: ks.map((k) => [k, byDay.get(k).peak]) },
+    { name: "Average", color: "--s2", pts: ks.map((k) => [k, Math.round(byDay.get(k).sum / byDay.get(k).n)]) },
+  ], { fromZero: true, daily: true });
+}
+
 function dailyCharts() {
   if (!DAILY) return;
   const from = Date.now() - 30 * 24 * H;
@@ -383,6 +582,8 @@ function render() {
   tiles(rows);
   charts(rows);
   dailyCharts();
+  reviewSection();
+  dailyPlayers();
   table();
   const last = DATA[DATA.length - 1];
   document.getElementById("updated").textContent = last
@@ -395,6 +596,8 @@ async function load() {
     const r = await fetch("data/history.json?ts=" + Date.now(), { cache: "no-store" });
     DATA = (await r.json()).sort((a, b) => a.t - b.t);
     if (!DAILY) { try { DAILY = await (await fetch("data/steamdb-daily.json", { cache: "no-store" })).json(); } catch (e) {} }
+    try { REVIEWS = await (await fetch("data/reviews.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
+    try { LIVE = await (await fetch("data/live.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
   } catch (e) {
     document.getElementById("updated").textContent = "Could not load data";
   }
