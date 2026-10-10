@@ -237,6 +237,8 @@ th:first-child, td:first-child { text-align: left; }
 
 <script>
 const H = 3600e3;
+// Data lives in the repo and is read straight from GitHub, so the page is fresh without re-publishing.
+const DATA_BASE = "https://raw.githubusercontent.com/CryDimon/militsioner-demo-stats/main/data/";
 let DATA = [];
 let DAILY = null;
 let RANGE = 24;
@@ -587,17 +589,18 @@ function render() {
   table();
   const last = DATA[DATA.length - 1];
   document.getElementById("updated").textContent = last
-    ? `Last sample ${timeFmt(last.t, true)} (your time) · ${DATA.length} samples since ${timeFmt(DATA[0].t, true)}`
+    ? `Last sample ${timeFmt(last.t, true)} (your time) · ${DATA.length} samples since ${timeFmt(DATA[0].t, true)}` +
+      (Date.now() - last.t > 30 * 60e3 ? ` · ⚠ no new data for ${Math.round((Date.now() - last.t) / 60e3)} min` : "")
     : "No data yet";
 }
 
 async function load() {
   try {
-    const r = await fetch("data/history.json?ts=" + Date.now(), { cache: "no-store" });
+    const r = await fetch(DATA_BASE + "history.json?ts=" + Date.now(), { cache: "no-store" });
     DATA = (await r.json()).sort((a, b) => a.t - b.t);
-    if (!DAILY) { try { DAILY = await (await fetch("data/steamdb-daily.json", { cache: "no-store" })).json(); } catch (e) {} }
-    try { REVIEWS = await (await fetch("data/reviews.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
-    try { LIVE = await (await fetch("data/live.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
+    if (!DAILY) { try { DAILY = await (await fetch(DATA_BASE + "steamdb-daily.json", { cache: "no-store" })).json(); } catch (e) {} }
+    try { REVIEWS = await (await fetch(DATA_BASE + "reviews.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
+    try { LIVE = await (await fetch(DATA_BASE + "live.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
   } catch (e) {
     document.getElementById("updated").textContent = "Could not load data";
   }
