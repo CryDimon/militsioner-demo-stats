@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Militsioner Demo Stats</title>
+<meta name="description" content="Live stats of the Militsioner Steam demo: players, growth vs all of Steam, wishlist rank, reviews, survey and Twitch.">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11,11,11,0.10);
+  --s1: #2a78d6;   /* demo */
+  --s2: #eb6834;   /* all of Steam */
+  --up: #006300;
+  --down: #d03b3b;
+  --tip-bg: #0b0b0b;
+  --tip-ink: #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --ring: rgba(255,255,255,0.10);
+    --s1: #3987e5;
+    --s2: #d95926;
+    --up: #0ca30c;
+    --down: #e66767;
+    --tip-bg: #f0efec;
+    --tip-ink: #0b0b0b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5;
+  --s2: #d95926;
+  --up: #0ca30c;
+  --down: #e66767;
+  --tip-bg: #f0efec;
+  --tip-ink: #0b0b0b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); margin-top: 2px; }
+.ranges { display: inline-flex; border: 1px solid var(--ring); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.ranges button {
+  font: inherit; color: var(--ink-2); background: none; border: 0; padding: 6px 12px; cursor: pointer;
+}
+.ranges button[aria-pressed="true"] { color: var(--ink); background: var(--ring); font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile, .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; }
+.tile { padding: 14px 16px; min-width: 0; }
+.tile .label { color: var(--ink-2); font-size: 12px; }
+.tile .value { font-size: 28px; font-weight: 600; line-height: 1.15; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.delta-up { color: var(--up); }
+.delta-down { color: var(--down); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 12px; }
+.card { padding: 16px 16px 8px; min-width: 0; }
+.card h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.card .desc { color: var(--ink-2); font-size: 12px; margin: 2px 0 8px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+.legend i { display: inline-block; width: 12px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
+.chart { position: relative; height: 220px; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--tip-bg); color: var(--tip-ink);
+  font-size: 12px; padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -100%);
+  opacity: 0; transition: opacity .1s; z-index: 2;
+}
+.tip b { font-weight: 600; }
+.tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
+footer a { color: var(--ink-2); }
+details { margin-top: 16px; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 8px; }
+th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 8px; }
+@media (max-width: 520px) {
+  .tile .value { font-size: 24px; }
+  .chart { height: 180px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Militsioner Demo · live stats</h1>
+      <div class="sub" id="updated">Loading…</div>
+    </div>
+    <div class="ranges" role="group" aria-label="Time range">
+      <button data-range="24" aria-pressed="true">24h</button>
+      <button data-range="168" aria-pressed="false">7 days</button>
+      <button data-range="0" aria-pressed="false">All</button>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Players in the demo</h2>
+      <div class="desc">Concurrent players, sampled about every 10 minutes.</div>
+      <div class="chart" id="c-demo"></div>
+    </div>
+    <div class="card">
+      <h2>Demo growth vs all of Steam</h2>
+      <div class="desc">Both as % change from the start of the selected range. Demo above Steam = growth beyond the daily cycle.</div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Demo players</span><span><i style="background:var(--s2)"></i>Steam users online</span></div>
+      <div class="chart" id="c-growth"></div>
+    </div>
+    <div class="card">
+      <h2>Demo share of Steam</h2>
+      <div class="desc">Demo players per 1 million Steam users online. Rising = the demo outgrows Steam's own traffic.</div>
+      <div class="chart" id="c-share"></div>
+    </div>
+    <div class="card">
+      <h2>Wishlist rank (main game)</h2>
+      <div class="desc">Position in Steam's "Top wishlisted" list. Up = better.</div>
+      <div class="chart" id="c-rank"></div>
+    </div>
+  </section>
+
+  <details>
+    <summary>Data table (last 50 samples)</summary>
+    <div class="tablewrap"><table id="table"></table></div>
+  </details>
+
+  <footer>
+    Updates automatically every ~10 minutes. Sources:
+    <a href="https://store.steampowered.com/app/4627010/" target="_blank" rel="noopener">Steam demo page</a> (players, reviews),
+    <a href="https://store.steampowered.com/stats/" target="_blank" rel="noopener">Steam stats</a> (users online),
+    <a href="https://store.steampowered.com/search/?filter=popularwishlist" target="_blank" rel="noopener">Steam top wishlisted</a>,
+    <a href="https://fydf7f123m.zite.so/" target="_blank" rel="noopener">player survey</a>,
+    <a href="https://www.twitch.tv/directory/category/militsioner" target="_blank" rel="noopener">Twitch category</a>.
+  </footer>
+</div>
+
+<script>
+const H = 3600e3;
+let DATA = [];
+let RANGE = 24;
+try { const r = localStorage.getItem("range"); if (r !== null) RANGE = Number(r); } catch (e) {}
+
+const fmt = (v, d = 0) => v == null || isNaN(v) ? "—" : Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+const pct = (v) => v == null || isNaN(v) ? "—" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "%";
+const timeFmt = (t, long) => new Date(t).toLocaleString("en-GB", long
+  ? { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
+  : { hour: "2-digit", minute: "2-digit" });
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const lastOf = (rows, k) => { for (let i = rows.length - 1; i >= 0; i--) if (rows[i][k] != null) return rows[i]; return null; };
+const firstOf = (rows, k) => { for (const r of rows) if (r[k] != null) return r; return null; };
+
+function inRange() {
+  if (!RANGE) return DATA;
+  const from = Date.now() - RANGE * H;
+  return DATA.filter((r) => r.t >= from);
+}
+
+/* ---------- tiles ---------- */
+function tiles(rows) {
+  const el = document.getElementById("tiles");
+  const now = lastOf(DATA, "demo");
+  const peak = rows.reduce((m, r) => (r.demo != null && (!m || r.demo > m.demo) ? r : m), null);
+  const rk = lastOf(DATA, "rank"), rk0 = firstOf(rows, "rank");
+  const rv = lastOf(DATA, "rev_total");
+  const sv = lastOf(DATA, "sv_n");
+  const tw = lastOf(DATA, "tw_followers");
+  const sh = lastOf(DATA.filter((r) => r.demo != null && r.steam), "steam");
+  const share = sh ? (sh.demo / sh.steam) * 1e6 : null;
+  const rangeName = RANGE === 24 ? "24h" : RANGE === 168 ? "7 days" : "all time";
+
+  let rankDelta = "";
+  if (rk && rk0 && rk.rank !== rk0.rank) {
+    const d = rk0.rank - rk.rank; // positive = moved up
+    rankDelta = `<span class="${d > 0 ? "delta-up" : "delta-down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}</span> in ${rangeName}`;
+  } else if (rk) rankDelta = `no change in ${rangeName}`;
+
+  const t = [
+    ["Players now", fmt(now && now.demo), `peak ${rangeName}: ${fmt(peak && peak.demo)}`],
+    ["Wishlist rank", rk ? "#" + rk.rank : "—", rankDelta || "Steam top wishlisted"],
+    ["Steam reviews", rv && rv.rev_total ? `${Math.round((rv.rev_pos / rv.rev_total) * 100)}%` : "—",
+      rv ? `${rv.rev_desc || "—"} · ${fmt(rv.rev_total)} reviews` : ""],
+    ["Survey rating", sv && sv.sv_avg != null ? `${sv.sv_avg.toFixed(2)} / 5` : "—", sv ? `${fmt(sv.sv_n)} responses` : ""],
+    ["Twitch", tw ? (tw.tw_channels ? fmt(tw.tw_viewers) + " viewers" : "offline") : "—",
+      tw ? `${fmt(tw.tw_channels)} live · ${fmt(tw.tw_followers)} followers` : ""],
+    ["Share of Steam", share != null ? fmt(share, 1) : "—", "demo players per 1M online"],
+  ];
+  el.innerHTML = t.map(([l, v, n]) => `<div class="tile"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
+}
+
+/* ---------- line chart with hover ---------- */
+function niceTicks(lo, hi, n = 4) {
+  const span = hi - lo || 1;
+  const step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+
+function lineChart(id, series, opt = {}) {
+  const box = document.getElementById(id);
+  box.innerHTML = "";
+  const pts = series.flatMap((s) => s.pts);
+  if (pts.length < 2) {
+    box.innerHTML = `<div class="empty">Not enough data yet — first samples arrive every ~10 minutes.</div>`;
+    return;
+  }
+  const W = box.clientWidth, Hh = box.clientHeight;
+  const m = { l: 44, r: 12, t: 10, b: 24 };
+  const t0 = Math.min(...pts.map((p) => p[0])), t1 = Math.max(...pts.map((p) => p[0]));
+  let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
+  if (opt.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  if (opt.fromZero) lo = Math.min(lo, 0);
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.08; lo -= opt.fromZero && lo >= 0 ? 0 : pad; hi += pad;
+  if (opt.fromZero && lo < 0 && Math.min(...pts.map((p) => p[1])) >= 0) lo = 0;
+  const X = (t) => m.l + ((t - t0) / (t1 - t0 || 1)) * (W - m.l - m.r);
+  const Y = (v) => opt.invert
+    ? m.t + ((v - lo) / (hi - lo)) * (Hh - m.t - m.b)
+    : Hh - m.b - ((v - lo) / (hi - lo)) * (Hh - m.t - m.b);
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${Hh}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", box.closest(".card").querySelector("h2").textContent);
+  const add = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+
+  // grid + y ticks
+  for (const v of niceTicks(lo, hi)) {
+    add("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 && opt.zero ? css("--axis") : css("--grid"), "stroke-width": 1 });
+    const tx = add("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") });
+    tx.textContent = opt.yFmt ? opt.yFmt(v) : fmt(v);
+  }
+  // x ticks
+  const long = t1 - t0 > 30 * H;
+  const nx = Math.max(2, Math.min(6, Math.floor((W - m.l - m.r) / 90)));
+  for (let i = 0; i <= nx; i++) {
+    const t = t0 + ((t1 - t0) * i) / nx;
+    const tx = add("text", { x: X(t), y: Hh - 6, "text-anchor": i === 0 ? "start" : i === nx ? "end" : "middle", "font-size": 11, fill: css("--muted") });
+    tx.textContent = timeFmt(t, long);
+  }
+  // lines (break on gaps longer than 40 min)
+  for (const s of series) {
+    let d = "", prev = null;
+    for (const p of s.pts) {
+      d += (prev && p[0] - prev[0] < 40 * 60e3 ? "L" : "M") + X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1);
+      prev = p;
+    }
+    add("path", { d, fill: "none", stroke: css(s.color), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" });
+    const last = s.pts[s.pts.length - 1];
+    add("circle", { cx: X(last[0]), cy: Y(last[1]), r: 4, fill: css(s.color), stroke: css("--surface"), "stroke-width": 2 });
+  }
+
+  // hover layer
+  const hover = add("g", { opacity: 0 });
+  const vline = add("line", { y1: m.t, y2: Hh - m.b, stroke: css("--axis"), "stroke-width": 1 }, hover);
+  const dots = series.map((s) => add("circle", { r: 4, fill: css(s.color), stroke: css("--surface"), "stroke-width": 2 }, hover));
+  const tip = document.createElement("div");
+  tip.className = "tip";
+  box.appendChild(svg);
+  box.appendChild(tip);
+  const hit = add("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: Hh, fill: "transparent" });
+
+  function show(clientX) {
+    const r = svg.getBoundingClientRect();
+    const t = t0 + ((clientX - r.left - m.l) / (W - m.l - m.r)) * (t1 - t0);
+    let html = "", tx = null;
+    series.forEach((s, i) => {
+      if (!s.pts.length) return;
+      let best = s.pts[0];
+      for (const p of s.pts) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+      tx = tx ?? best[0];
+      dots[i].setAttribute("cx", X(best[0])); dots[i].setAttribute("cy", Y(best[1]));
+      html += `<div><span class="sw" style="background:${css(s.color)}"></span>${s.name}: <b>${opt.tipFmt ? opt.tipFmt(best[1]) : fmt(best[1])}</b></div>`;
+    });
+    vline.setAttribute("x1", X(tx)); vline.setAttribute("x2", X(tx));
+    hover.setAttribute("opacity", 1);
+    tip.innerHTML = `<div style="opacity:.7">${timeFmt(tx, true)}</div>` + html;
+    const x = Math.min(Math.max(X(tx), 70), W - 70);
+    tip.style.left = x + "px"; tip.style.top = (m.t + 4) + "px"; tip.style.opacity = 1;
+  }
+  const hide = () => { hover.setAttribute("opacity", 0); tip.style.opacity = 0; };
+  hit.addEventListener("pointermove", (e) => show(e.clientX));
+  hit.addEventListener("pointerdown", (e) => show(e.clientX));
+  hit.addEventListener("pointerleave", hide);
+}
+
+/* ---------- charts ---------- */
+function charts(rows) {
+  const demo = rows.filter((r) => r.demo != null).map((r) => [r.t, r.demo]);
+  lineChart("c-demo", [{ name: "Players", color: "--s1", pts: demo }], { fromZero: true });
+
+  const both = rows.filter((r) => r.demo != null && r.steam);
+  const b0 = both[0];
+  const growth = b0 ? [
+    { name: "Demo", color: "--s1", pts: both.map((r) => [r.t, (r.demo / (b0.demo || 1) - 1) * 100]) },
+    { name: "Steam", color: "--s2", pts: both.map((r) => [r.t, (r.steam / b0.steam - 1) * 100]) },
+  ] : [];
+  lineChart("c-growth", growth, { zero: true, yFmt: (v) => (v > 0 ? "+" : "") + Math.round(v) + "%", tipFmt: pct });
+
+  lineChart("c-share", [{ name: "Per 1M users", color: "--s1", pts: both.map((r) => [r.t, (r.demo / r.steam) * 1e6]) }],
+    { fromZero: true, yFmt: (v) => fmt(v, 1), tipFmt: (v) => fmt(v, 2) });
+
+  const rank = rows.filter((r) => r.rank != null).map((r) => [r.t, r.rank]);
+  lineChart("c-rank", [{ name: "Rank", color: "--s1", pts: rank }], { invert: true, yFmt: (v) => "#" + Math.round(v), tipFmt: (v) => "#" + v });
+}
+
+function table() {
+  const rows = DATA.slice(-50).reverse();
+  const cols = [["Time", (r) => timeFmt(r.t, true)], ["Players", (r) => fmt(r.demo)], ["Steam online", (r) => fmt(r.steam)],
+    ["Rank", (r) => (r.rank ? "#" + r.rank : "—")], ["Reviews", (r) => fmt(r.rev_total)], ["Survey", (r) => (r.sv_avg != null ? r.sv_avg.toFixed(2) + " · " + r.sv_n : "—")],
+    ["Twitch viewers", (r) => fmt(r.tw_viewers)]];
+  document.getElementById("table").innerHTML =
+    "<tr>" + cols.map((c) => `<th>${c[0]}</th>`).join("") + "</tr>" +
+    rows.map((r) => "<tr>" + cols.map((c) => `<td>${c[1](r)}</td>`).join("") + "</tr>").join("");
+}
+
+function render() {
+  const rows = inRange();
+  tiles(rows);
+  charts(rows);
+  table();
+  const last = DATA[DATA.length - 1];
+  document.getElementById("updated").textContent = last
+    ? `Last sample ${timeFmt(last.t, true)} (your time) · ${DATA.length} samples since ${timeFmt(DATA[0].t, true)}`
+    : "No data yet";
+}
+
+async function load() {
+  try {
+    const r = await fetch("data/history.json?ts=" + Date.now(), { cache: "no-store" });
+    DATA = (await r.json()).sort((a, b) => a.t - b.t);
+  } catch (e) {
+    document.getElementById("updated").textContent = "Could not load data";
+  }
+  render();
+}
+
+document.querySelectorAll(".ranges button").forEach((b) => {
+  b.setAttribute("aria-pressed", String(Number(b.dataset.range) === RANGE));
+  b.addEventListener("click", () => {
+    RANGE = Number(b.dataset.range);
+    try { localStorage.setItem("range", String(RANGE)); } catch (e) {}
+    document.querySelectorAll(".ranges button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    render();
+  });
+});
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+load();
+setInterval(load, 5 * 60e3);
+</script>
+</body>
+</html>
