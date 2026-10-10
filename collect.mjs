@@ -6,6 +6,7 @@ import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 const DEMO_ID = 4627010; // Militsioner Demo
 const GAME_ID = 1373530; // Militsioner
 const KEEP_DAYS = 60;
+const DEBUG = {};
 const FILE = "data/history.json";
 
 async function get(url, opts = {}, ms = 20000) {
@@ -25,6 +26,7 @@ async function safe(name, fn) {
     return await fn();
   } catch (e) {
     console.log(`[${name}] failed: ${e.message}`);
+    DEBUG[name] = e.message;
     return null;
   }
 }
@@ -100,9 +102,13 @@ const twitch = () =>
 // Steam community followers of the main game (members of its community hub).
 const followers = () =>
   safe("followers", async () => {
-    const x = await (await get(`https://steamcommunity.com/games/${GAME_ID}/memberslistxml/?xml=1`)).text();
+    const r = await get(`https://steamcommunity.com/games/${GAME_ID}/memberslistxml/?xml=1`, {
+      headers: { "User-Agent": "Mozilla/5.0 (militsioner-demo-stats; GitHub Actions)", Accept: "application/xml,text/xml" },
+    });
+    const x = await r.text();
     const m = x.match(/<memberCount>(\d+)<\/memberCount>/);
-    return m ? Number(m[1]) : null;
+    if (!m) { DEBUG.followers = `${r.status} ${r.url} ${x.slice(0, 160)}`; return null; }
+    return Number(m[1]);
   });
 
 // All Steam reviews of the demo with playtime. Only numbers, language and topic tags are stored, no texts or names.
@@ -210,4 +216,4 @@ await writeFile(FILE, JSON.stringify(history));
 if (revList && revList.length) {
   await writeFile("data/reviews.json", JSON.stringify({ updated: Date.now(), topics: Object.keys(TOPICS), items: revList }));
 }
-await writeFile("data/live.json", JSON.stringify({ updated: Date.now(), twitch_streams: tw ? tw.streams : null }));
+await writeFile("data/live.json", JSON.stringify({ updated: Date.now(), twitch_streams: tw ? tw.streams : null, errors: DEBUG }));
