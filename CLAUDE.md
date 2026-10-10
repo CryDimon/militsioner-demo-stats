@@ -36,6 +36,9 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
   `{updated, topics[], items: [{t, up, lang, at, fo, deck, tags[]}]}` (`at` = playtime at review, `fo` = playtime forever, minutes).
 - `data/live.json` — current Twitch streams in the category + per-source errors.
 - `data/steamdb-daily.json` — static daily series (followers, Twitch peak viewers) from SteamDB CSV exports.
+- `data/playtest.json` — static: Militsioner Playtest (app `2101830`) daily figures for its 30 public days
+  (launch 20 Aug 2025 → 18 Sep 2025) from a SteamDB CSV export: `{source, app_id, launch, daily_peak: [[t, v]]}`.
+  The page plots it against the demo's daily peak as "days since launch".
 - `data/backfill.json` (temporary) — if present, `collect.mjs` merges it into history once and deletes it.
   Use this for any future back-fill instead of editing `history.json` by hand (avoids racing the bot).
 
@@ -54,8 +57,10 @@ All Steam endpoints block browser CORS, which is why collection happens server-s
 
 ## Rules
 
-- **No SteamDB scraping.** SteamDB has no API and blocks automation with Cloudflare. Its data only
-  enters via CSV files the owner exports by hand from the charts' "Download CSV" menu.
+- **SteamDB parsing is allowed** (owner's decision, 10 Oct 2026). SteamDB has no API and sits behind
+  Cloudflare: plain requests get `403` (checked 10 Oct 2026). Use only requests SteamDB answers normally —
+  no Cloudflare/captcha bypass, headless-browser tricks or borrowed cookies. Until a plain endpoint works,
+  SteamDB data enters via CSV files the owner exports from the charts' "Download CSV" menu.
 - **The player survey (zite.so) is not published.** It was removed on purpose — don't add survey
   numbers back to the page or to `data/`.
 - **No review texts or reviewer identities** in `data/` — only numbers, language and topic tags.

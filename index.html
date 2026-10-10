@@ -166,6 +166,16 @@ th:first-child, td:first-child { text-align: left; }
     </div>
   </section>
 
+  <h2 class="section">Launch comparison · Demo vs Playtest (Aug 2025)</h2>
+  <section class="grid2">
+    <div class="card">
+      <h2>Daily peak players since launch</h2>
+      <div class="desc">Day 0 = launch day (UTC) of each build. The demo's day 0 is partial — it went live in the evening.</div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Demo (Oct 2026)</span><span><i style="background:var(--s2)"></i>Playtest (20 Aug 2025)</span></div>
+      <div class="chart" id="c-launch"></div>
+      <div class="note-sm" id="n-launch"></div>
+    </div>
+  </section>
 
   <h2 class="section">Playtime &amp; reviews · all time since the demo launched</h2>
   <section class="tiles" id="tiles2"></section>
@@ -341,11 +351,13 @@ function lineChart(id, series, opt = {}) {
   const dayOnly = opt.daily;
   const nx = Math.max(2, Math.min(6, Math.floor((W - m.l - m.r) / 90)));
   const uniq = [...new Set(pts.map((p) => p[0]))].sort((a, b) => a - b);
-  const xt = dayOnly && uniq.length <= nx + 1 ? uniq : Array.from({ length: nx + 1 }, (_, i) => t0 + ((t1 - t0) * i) / nx);
+  const xt = opt.xFmt ? niceTicks(t0, t1, nx)
+    : dayOnly && uniq.length <= nx + 1 ? uniq : Array.from({ length: nx + 1 }, (_, i) => t0 + ((t1 - t0) * i) / nx);
   for (let i = 0; i < xt.length; i++) {
     const t = xt[i];
-    const tx = add("text", { x: X(t), y: Hh - 6, "text-anchor": i === 0 ? "start" : i === xt.length - 1 ? "end" : "middle", "font-size": 11, fill: css("--muted") });
-    tx.textContent = dayOnly ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : timeFmt(t, long);
+    const anchor = X(t) - m.l < 20 ? "start" : W - m.r - X(t) < 20 ? "end" : "middle";
+    const tx = add("text", { x: X(t), y: Hh - 6, "text-anchor": anchor, "font-size": 11, fill: css("--muted") });
+    tx.textContent = opt.xFmt ? opt.xFmt(t) : dayOnly ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : timeFmt(t, long);
   }
   // lines (break on gaps longer than 40 min)
   for (const s of series) {
@@ -377,13 +389,14 @@ function lineChart(id, series, opt = {}) {
       if (!s.pts.length) return;
       let best = s.pts[0];
       for (const p of s.pts) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+      if (opt.near != null && Math.abs(best[0] - t) > opt.near) { dots[i].setAttribute("cx", -99); return; }
       tx = tx ?? best[0];
       dots[i].setAttribute("cx", X(best[0])); dots[i].setAttribute("cy", Y(best[1]));
       html += `<div><span class="sw" style="background:${css(s.color)}"></span>${s.name}: <b>${opt.tipFmt ? opt.tipFmt(best[1]) : fmt(best[1])}</b></div>`;
     });
     vline.setAttribute("x1", X(tx)); vline.setAttribute("x2", X(tx));
     hover.setAttribute("opacity", 1);
-    tip.innerHTML = `<div style="opacity:.7">${opt.daily ? new Date(tx).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : timeFmt(tx, true)}</div>` + html;
+    tip.innerHTML = `<div style="opacity:.7">${opt.xFmt ? opt.xFmt(tx) : opt.daily ? new Date(tx).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : timeFmt(tx, true)}</div>` + html;
     const x = Math.min(Math.max(X(tx), 70), W - 70);
     tip.style.left = x + "px"; tip.style.top = (m.t + 4) + "px"; tip.style.opacity = 1;
   }
@@ -570,6 +583,25 @@ function dailyPlayers() {
   ], { fromZero: true, daily: true });
 }
 
+// Demo vs Playtest: daily peak by UTC day, x = days since each launch day.
+let PLAYTEST = null;
+function launchChart() {
+  const D = 24 * H, utcDay = (t) => Math.floor(t / D) * D;
+  const first = firstOf(DATA, "demo");
+  const byDay = new Map();
+  for (const r of DATA) if (r.demo != null) { const k = utcDay(r.t); byDay.set(k, Math.max(byDay.get(k) || 0, r.demo)); }
+  const demo = first ? [...byDay].sort((a, b) => a[0] - b[0]).map(([k, v]) => [Math.round((k - utcDay(first.t)) / D), v]) : [];
+  const pt = PLAYTEST ? PLAYTEST.daily_peak.map(([t, v]) => [Math.round((t - PLAYTEST.launch) / D), v]) : [];
+  lineChart("c-launch", [
+    { name: "Demo", color: "--s1", pts: demo },
+    { name: "Playtest", color: "--s2", pts: pt },
+  ], { fromZero: true, daily: true, near: 0.5, xFmt: (d) => "Day " + Math.round(d) });
+  const last = demo[demo.length - 1], same = last && pt.find((p) => p[0] === last[0]);
+  document.getElementById("n-launch").textContent = same
+    ? `Day ${last[0]}${utcDay(Date.now()) === utcDay(first.t) + last[0] * D ? " so far" : ""}: demo ${fmt(last[1])} vs playtest ${fmt(same[1])} (${Math.round((last[1] / same[1]) * 100)}%). Playtest values are SteamDB daily figures.`
+    : "Playtest values are SteamDB daily figures.";
+}
+
 function dailyCharts() {
   if (!DAILY) return;
   const from = Date.now() - 30 * 24 * H;
@@ -584,6 +616,7 @@ function render() {
   tiles(rows);
   charts(rows);
   dailyCharts();
+  launchChart();
   reviewSection();
   dailyPlayers();
   table();
@@ -599,6 +632,7 @@ async function load() {
     const r = await fetch(DATA_BASE + "history.json?ts=" + Date.now(), { cache: "no-store" });
     DATA = (await r.json()).sort((a, b) => a.t - b.t);
     if (!DAILY) { try { DAILY = await (await fetch(DATA_BASE + "steamdb-daily.json", { cache: "no-store" })).json(); } catch (e) {} }
+    if (!PLAYTEST) { try { PLAYTEST = await (await fetch(DATA_BASE + "playtest.json", { cache: "no-store" })).json(); } catch (e) {} }
     try { REVIEWS = await (await fetch(DATA_BASE + "reviews.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
     try { LIVE = await (await fetch(DATA_BASE + "live.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
   } catch (e) {
