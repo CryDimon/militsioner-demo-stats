@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Militsioner Demo Stats</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M2 12l4-5 3 3 5-7%22 fill=%22none%22 stroke=%22%232a78d6%22 stroke-width=%222%22/%3E%3C/svg%3E">
-<meta name="description" content="Live stats of the Militsioner Steam demo: players, growth vs all of Steam, wishlist rank, reviews, survey and Twitch.">
+<meta name="description" content="Live stats of the Militsioner Steam demo: players, growth vs all of Steam, wishlist rank, reviews and Twitch.">
 <style>
 :root {
   color-scheme: light;
@@ -181,7 +181,6 @@ th:first-child, td:first-child { text-align: left; }
     <a href="https://store.steampowered.com/app/4627010/" target="_blank" rel="noopener">Steam demo page</a> (players, reviews),
     <a href="https://store.steampowered.com/stats/" target="_blank" rel="noopener">Steam stats</a> (users online),
     <a href="https://store.steampowered.com/search/?filter=popularwishlist" target="_blank" rel="noopener">Steam top wishlisted</a>,
-    <a href="https://fydf7f123m.zite.so/" target="_blank" rel="noopener">player survey</a>,
     <a href="https://www.twitch.tv/directory/category/militsioner" target="_blank" rel="noopener">Twitch category</a>.
   </footer>
 </div>
@@ -215,7 +214,6 @@ function tiles(rows) {
   const peak = rows.reduce((m, r) => (r.demo != null && (!m || r.demo > m.demo) ? r : m), null);
   const rk = lastOf(DATA, "rank"), rk0 = firstOf(rows, "rank");
   const rv = lastOf(DATA, "rev_total");
-  const sv = lastOf(DATA, "sv_n");
   const tw = lastOf(DATA, "tw_followers");
   const sh = lastOf(DATA.filter((r) => r.demo != null && r.steam), "steam");
   const share = sh ? (sh.demo / sh.steam) * 1e6 : null;
@@ -232,7 +230,6 @@ function tiles(rows) {
     ["Wishlist rank", rk ? "#" + rk.rank : "—", rankDelta || "Steam top wishlisted"],
     ["Steam reviews", rv && rv.rev_total ? `${Math.round((rv.rev_pos / rv.rev_total) * 100)}%` : "—",
       rv ? `${rv.rev_desc || "—"} · ${fmt(rv.rev_total)} reviews` : ""],
-    ["Survey rating", sv && sv.sv_avg != null ? `${sv.sv_avg.toFixed(2)} / 5` : "—", sv ? `${fmt(sv.sv_n)} responses` : ""],
     ["Twitch viewers", tw ? (tw.tw_channels ? fmt(tw.tw_viewers) : "offline") : "—",
       tw ? `${fmt(tw.tw_channels)} live · ${fmt(tw.tw_followers)} followers` : ""],
     ["Share of Steam", share != null ? fmt(share, 1) : "—", "demo players per 1M online"],
@@ -365,7 +362,7 @@ function charts(rows) {
 function table() {
   const rows = DATA.slice(-50).reverse();
   const cols = [["Time", (r) => timeFmt(r.t, true)], ["Players", (r) => fmt(r.demo)], ["Steam online", (r) => fmt(r.steam)],
-    ["Rank", (r) => (r.rank ? "#" + r.rank : "—")], ["Reviews", (r) => fmt(r.rev_total)], ["Survey", (r) => (r.sv_avg != null ? r.sv_avg.toFixed(2) + " · " + r.sv_n : "—")],
+    ["Rank", (r) => (r.rank ? "#" + r.rank : "—")], ["Reviews", (r) => fmt(r.rev_total)],
     ["Twitch viewers", (r) => fmt(r.tw_viewers)]];
   document.getElementById("table").innerHTML =
     "<tr>" + cols.map((c) => `<th>${c[0]}</th>`).join("") + "</tr>" +

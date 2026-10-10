@@ -5,7 +5,6 @@ import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 
 const DEMO_ID = 4627010; // Militsioner Demo
 const GAME_ID = 1373530; // Militsioner
-const SURVEY_URL = "https://fydf7f123m.zite.so/api/getResponses";
 const KEEP_DAYS = 60;
 const FILE = "data/history.json";
 
@@ -71,20 +70,6 @@ const reviews = () =>
     return q ? { total: q.total_reviews, pos: q.total_positive, desc: q.review_score_desc } : null;
   });
 
-// Survey: respondents and average enjoyment (1-5). Only aggregates are stored.
-const survey = () =>
-  safe("survey", async () => {
-    const j = await (
-      await get(SURVEY_URL, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
-    ).json();
-    const rows = j.responses || [];
-    const scores = rows.map((r) => r.enjoyment).filter((v) => typeof v === "number");
-    if (!rows.length) return null;
-    return {
-      n: rows.length,
-      avg: scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100 : null,
-    };
-  });
 
 // Twitch category "Militsioner" (Twitch's public web endpoint, no keys).
 const twitch = () =>
@@ -100,12 +85,11 @@ const twitch = () =>
     return g ? { viewers: g.viewersCount || 0, channels: g.broadcastersCount || 0, followers: g.followersCount || 0 } : null;
   });
 
-const [demo, steam, rank, rev, sv, tw] = await Promise.all([
+const [demo, steam, rank, rev, tw] = await Promise.all([
   demoPlayers(),
   steamTotal(),
   wishlistRank(),
   reviews(),
-  survey(),
   twitch(),
 ]);
 
@@ -117,8 +101,6 @@ const row = {
   rev_total: rev ? rev.total : null,
   rev_pos: rev ? rev.pos : null,
   rev_desc: rev ? rev.desc : null,
-  sv_n: sv ? sv.n : null,
-  sv_avg: sv ? sv.avg : null,
   tw_viewers: tw ? tw.viewers : null,
   tw_channels: tw ? tw.channels : null,
   tw_followers: tw ? tw.followers : null,
@@ -153,6 +135,8 @@ if (steam && steam.series) {
   }
 }
 history.sort((a, b) => a.t - b.t);
+// Survey figures are not published.
+for (const r of history) { delete r.sv_n; delete r.sv_avg; }
 const cutoff = Date.now() - KEEP_DAYS * 864e5;
 history = history.filter((r) => r.t >= cutoff);
 await writeFile(FILE, JSON.stringify(history));
