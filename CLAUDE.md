@@ -39,9 +39,11 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
 - `data/launches.json` — static list of other launches the page compares the demo with ("days since launch" chart,
   each one a toggle chip): `[{id, name, label, app_id, launch, default, source, daily_peak: [[t, v]]}]`
   (`launch` = launch day 00:00 UTC in ms, `default` = shown before the viewer toggles). Built from SteamDB CSV exports.
-  Now: Militsioner Playtest (app `2101830`, public 20 Aug → 18 Sep 2025). Candidates waiting for CSVs:
-  No, I'm not a Human (app `3180070`, released 15 Sep 2025, also Critical Reflex) and THE LIFT (app `3283240`,
-  unreleased; public demo planned) — SteamCharts only has monthly averages for those launch periods.
+  Now (first 60 days at most; the chart shows the first 30 or as many as the demo has):
+  Militsioner Playtest (app `2101830`, public 20 Aug → 18 Sep 2025, on by default);
+  No, I'm not a Human demo (app `3640000`, from 8 Jun 2025 — the series starts at its peak, so earlier
+  launch days may be missing; the app is no longer served by the Steam store API);
+  The Lift Playtest (app `3916290`), two waves: 16 Sep 2025 and 12 Jun 2026.
 - `data/backfill.json` (temporary) — if present, `collect.mjs` merges it into history once and deletes it.
   Use this for any future back-fill instead of editing `history.json` by hand (avoids racing the bot).
 

@@ -21,6 +21,7 @@
   --s2: #eb6834;   /* all of Steam */
   --s3: #1a9e77;
   --s4: #8b5cf6;
+  --s5: #d6336c;
   --up: #006300;
   --down: #d03b3b;
   --tip-bg: #0b0b0b;
@@ -41,6 +42,7 @@
     --s2: #d95926;
     --s3: #2bb68c;
     --s4: #a07ef7;
+  --s5: #e8578a;
     --up: #0ca30c;
     --down: #e66767;
     --tip-bg: #f0efec;
@@ -61,6 +63,7 @@
   --s2: #d95926;
   --s3: #2bb68c;
   --s4: #a07ef7;
+  --s5: #e8578a;
   --up: #0ca30c;
   --down: #e66767;
   --tip-bg: #f0efec;
@@ -602,7 +605,7 @@ function dailyPlayers() {
 // Launch comparison: daily peak by UTC day, x = days since each launch day.
 // Other launches come from data/launches.json; each can be toggled on the chart.
 let LAUNCHES = [];
-const COLORS = ["--s2", "--s3", "--s4"];
+const COLORS = ["--s2", "--s3", "--s4", "--s5"];
 let SHOWN = null;
 try { SHOWN = JSON.parse(localStorage.getItem("launches")); } catch (e) {}
 function launchChart() {
@@ -612,7 +615,8 @@ function launchChart() {
   for (const r of DATA) if (r.demo != null) { const k = utcDay(r.t); byDay.set(k, Math.max(byDay.get(k) || 0, r.demo)); }
   const demo = first ? [...byDay].sort((a, b) => a[0] - b[0]).map(([k, v]) => [Math.round((k - utcDay(first.t)) / D), v]) : [];
   const shown = (l) => (SHOWN && l.id in SHOWN ? SHOWN[l.id] : !!l.default);
-  const others = LAUNCHES.map((l, i) => ({ l, color: COLORS[i % COLORS.length], pts: l.daily_peak.map(([t, v]) => [Math.round((t - l.launch) / D), v]) }));
+  const maxDay = Math.max(29, demo.length ? demo[demo.length - 1][0] : 0); // first month, or longer once the demo is older
+  const others = LAUNCHES.map((l, i) => ({ l, color: COLORS[i % COLORS.length], pts: l.daily_peak.map(([t, v]) => [Math.round((t - l.launch) / D), v]).filter((p) => p[0] <= maxDay) }));
 
   const lg = document.getElementById("lg-launch");
   lg.innerHTML = `<span><i style="background:var(--s1)"></i>Demo (Oct 2026)</span>` +
@@ -631,7 +635,7 @@ function launchChart() {
   const sameDay = on.map((o) => [o.l.name, o.pts.find((p) => p[0] === (last && last[0]))]).filter((x) => x[1]);
   document.getElementById("n-launch").textContent = (last && sameDay.length
     ? `Day ${last[0]}${utcDay(Date.now()) === utcDay(first.t) + last[0] * D ? " so far" : ""}: demo ${fmt(last[1])} vs ` +
-      sameDay.map(([n, p]) => `${n.toLowerCase()} ${fmt(p[1])} (${Math.round((last[1] / p[1]) * 100)}%)`).join(", ") + ". "
+      sameDay.map(([n, p]) => `${n} ${fmt(p[1])} (${Math.round((last[1] / p[1]) * 100)}%)`).join(", ") + ". "
     : "") + "Comparison values are SteamDB daily figures.";
 }
 
