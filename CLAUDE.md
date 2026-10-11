@@ -60,6 +60,12 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
 
 All Steam endpoints block browser CORS, which is why collection happens server-side.
 
+Page visitors (header line "N watching now · N page views · N visitors") come from the browser itself via
+`abacus.jasoncameron.dev` (free, no account, CORS `*`, 30 req / 10 s per IP), namespace `militsioner-demo-stats`:
+`views` (+1 per page load), `people` (+1 once per browser, flag in localStorage), `live-<5-min slot>`
+(+1 per visible tab per slot; "watching now" = max of current and previous slot). Only `*.github.io`
+counts — local previews only read. Counts are public and can be bumped by anyone, so treat them as rough.
+
 ## Rules
 
 - **SteamDB parsing is allowed** (owner's decision, 10 Oct 2026). SteamDB has no API and sits behind

@@ -123,6 +123,10 @@ h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 .streams a { color: var(--ink); }
 .note-sm { color: var(--muted); font-size: 11px; margin-top: 6px; }
 h2.section { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 24px 0 10px; }
+h2.section a, .tile .note a { color: var(--s1); font-weight: 500; text-decoration: none; white-space: nowrap; }
+h2.section a { margin-left: 8px; }
+h2.section a:hover, .tile .note a:hover { text-decoration: underline; }
+.visits { color: var(--muted); font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
 footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
 footer a { color: var(--ink-2); }
 details { margin-top: 16px; }
@@ -143,6 +147,7 @@ th:first-child, td:first-child { text-align: left; }
     <div>
       <h1>Militsioner Demo · live stats</h1>
       <div class="sub" id="updated">Loading…</div>
+      <div class="visits" id="visits"></div>
     </div>
     <div class="ranges" role="group" aria-label="Time range">
       <button data-range="24" aria-pressed="true">24h</button>
@@ -193,7 +198,7 @@ th:first-child, td:first-child { text-align: left; }
     </div>
   </section>
 
-  <h2 class="section">Playtime &amp; reviews · all time since the demo launched</h2>
+  <h2 class="section">Playtime &amp; reviews · all time since the demo launched <a href="https://store.steampowered.com/app/4627010/#app_reviews_hash" target="_blank" rel="noopener">Read reviews on Steam ↗</a></h2>
   <section class="tiles" id="tiles2"></section>
   <section class="grid2">
     <div class="card">
@@ -307,7 +312,7 @@ function tiles(rows) {
     ["Players now", fmt(now && now.demo), `peak ${rangeName}: ${fmt(peak && peak.demo)}`],
     ["Wishlist rank", rk ? "#" + rk.rank : "—", rankDelta || "Steam top wishlisted"],
     ["Steam reviews", rv && rv.rev_total ? `${Math.round((rv.rev_pos / rv.rev_total) * 100)}%` : "—",
-      rv ? `${rv.rev_desc || "—"} · ${fmt(rv.rev_total)} reviews` : ""],
+      rv ? `${rv.rev_desc || "—"} · <a href="https://store.steampowered.com/app/4627010/#app_reviews_hash" target="_blank" rel="noopener">${fmt(rv.rev_total)} reviews ↗</a>` : ""],
     ["Twitch viewers", tw ? (tw.tw_channels ? fmt(tw.tw_viewers) : "offline") : "—",
       tw ? `${fmt(tw.tw_channels)} live · ${fmt(tw.tw_followers)} followers` : ""],
     ["Share of Steam", share != null ? fmt(share, 1) : "—", "demo players per 1M online"],
@@ -677,6 +682,45 @@ async function load() {
   }
   render();
 }
+
+/* ---------- page visitors ----------
+   abacus.jasoncameron.dev: free counter, no account, CORS open. Counts are public and approximate
+   (anyone can bump them). Only the published page counts; local previews just read.
+   "watching now" = open, visible tabs: each one bumps a key for the current 5-minute slot. */
+const CNT = "https://abacus.jasoncameron.dev", CNT_NS = "militsioner-demo-stats", SLOT = 5 * 60e3;
+const COUNTS = location.hostname.endsWith("github.io");
+const VIS = { views: null, people: null, now: null };
+let liveSlot = null;
+async function cnt(op, key) {
+  if (op === "hit" && !COUNTS) op = "get";
+  try {
+    const r = await fetch(`${CNT}/${op}/${CNT_NS}/${key}`);
+    if (r.status === 404) return 0;
+    return r.ok ? (await r.json()).value : null;
+  } catch (e) { return null; }
+}
+async function visits(first) {
+  if (first) {
+    VIS.views = await cnt("hit", "views");
+    let seen = null;
+    try { seen = localStorage.getItem("seen"); } catch (e) {}
+    VIS.people = await cnt(seen ? "get" : "hit", "people");
+    if (!seen && VIS.people != null) try { localStorage.setItem("seen", "1"); } catch (e) {}
+  }
+  const slot = Math.floor(Date.now() / SLOT);
+  const op = !document.hidden && slot !== liveSlot ? "hit" : "get";
+  if (op === "hit") liveSlot = slot;
+  const [cur, prev] = await Promise.all([cnt(op, "live-" + slot), cnt("get", "live-" + (slot - 1))]);
+  VIS.now = cur == null && prev == null ? null : Math.max(cur || 0, prev || 0);
+  const parts = [];
+  if (VIS.now != null) parts.push(`${fmt(VIS.now)} watching now`);
+  if (VIS.views != null) parts.push(`${fmt(VIS.views)} page views`);
+  if (VIS.people != null) parts.push(`${fmt(VIS.people)} visitors`);
+  document.getElementById("visits").textContent = parts.join(" · ");
+}
+visits(true);
+setInterval(visits, 60e3);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) visits(); });
 
 document.querySelectorAll(".ranges button").forEach((b) => {
   b.setAttribute("aria-pressed", String(Number(b.dataset.range) === RANGE));
