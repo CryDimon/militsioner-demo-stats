@@ -668,8 +668,8 @@ async function load() {
   try {
     const r = await fetch(DATA_BASE + "history.json?ts=" + Date.now(), { cache: "no-store" });
     DATA = (await r.json()).sort((a, b) => a.t - b.t);
-    if (!DAILY) { try { DAILY = await (await fetch(DATA_BASE + "steamdb-daily.json", { cache: "no-store" })).json(); } catch (e) {} }
-    if (!LAUNCHES.length) { try { LAUNCHES = await (await fetch(DATA_BASE + "launches.json", { cache: "no-store" })).json(); } catch (e) {} }
+    if (!DAILY) { try { DAILY = await (await fetch(DATA_BASE + "steamdb-daily.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {} }
+    if (!LAUNCHES.length) { try { LAUNCHES = await (await fetch(DATA_BASE + "launches.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {} }
     try { REVIEWS = await (await fetch(DATA_BASE + "reviews.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
     try { LIVE = await (await fetch(DATA_BASE + "live.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
   } catch (e) {
