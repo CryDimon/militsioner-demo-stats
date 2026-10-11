@@ -36,9 +36,12 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
   `{updated, topics[], items: [{t, up, lang, at, fo, deck, tags[]}]}` (`at` = playtime at review, `fo` = playtime forever, minutes).
 - `data/live.json` — current Twitch streams in the category + per-source errors.
 - `data/steamdb-daily.json` — static daily series (followers, Twitch peak viewers) from SteamDB CSV exports.
-- `data/playtest.json` — static: Militsioner Playtest (app `2101830`) daily figures for its 30 public days
-  (launch 20 Aug 2025 → 18 Sep 2025) from a SteamDB CSV export: `{source, app_id, launch, daily_peak: [[t, v]]}`.
-  The page plots it against the demo's daily peak as "days since launch".
+- `data/launches.json` — static list of other launches the page compares the demo with ("days since launch" chart,
+  each one a toggle chip): `[{id, name, label, app_id, launch, default, source, daily_peak: [[t, v]]}]`
+  (`launch` = launch day 00:00 UTC in ms, `default` = shown before the viewer toggles). Built from SteamDB CSV exports.
+  Now: Militsioner Playtest (app `2101830`, public 20 Aug → 18 Sep 2025). Candidates waiting for CSVs:
+  No, I'm not a Human (app `3180070`, released 15 Sep 2025, also Critical Reflex) and THE LIFT (app `3283240`,
+  unreleased; public demo planned) — SteamCharts only has monthly averages for those launch periods.
 - `data/backfill.json` (temporary) — if present, `collect.mjs` merges it into history once and deletes it.
   Use this for any future back-fill instead of editing `history.json` by hand (avoids racing the bot).
 
