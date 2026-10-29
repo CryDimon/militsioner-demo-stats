@@ -62,10 +62,23 @@ const wishlistRank = () =>
     return null;
   });
 
-// Steam user reviews of the demo: review count and score from the official store API.
+// Steam user reviews of the demo: the count and score shown on the store page ("97% of the 355 user reviews").
+// Fallback: the official store API, whose "filtered" count runs a few reviews lower.
 // (store.steampowered.com/appreviews redirects to the store front page since 22 Oct 2026.)
 const reviews = () =>
   safe("reviews", async () => {
+    try {
+      const html = await (await get(`https://store.steampowered.com/app/${DEMO_ID}/?l=english&cc=us`, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
+      const m = html.match(/data-tooltip-html="(\d+)% of the ([\d,]+) user reviews/);
+      const d = html.match(/class="game_review_summary[^"]*"[^>]*>([^<]+)</);
+      if (m) {
+        const total = Number(m[2].replace(/,/g, "")), pct = Number(m[1]);
+        return { total, pos: Math.round((total * pct) / 100), desc: d ? d[1].trim() : null };
+      }
+      DEBUG["reviews page"] = "no review summary on the store page";
+    } catch (e) {
+      DEBUG["reviews page"] = e.message;
+    }
     const input = { ids: [{ appid: DEMO_ID }], context: { language: "english", country_code: "US" }, data_request: { include_reviews: true } };
     const j = await (
       await get(`https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`)

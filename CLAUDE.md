@@ -56,7 +56,7 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
 | demo players | `api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=4627010` |
 | Steam users online | `store.steampowered.com/stats/userdata.json` (48h series, "Steam users logged in") |
 | wishlist rank | position in `store.steampowered.com/search/results/?filter=popularwishlist&json=1` (pages of 100, first 1000) |
-| review count / score | `api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=…include_reviews` → `summary_filtered` (`rev_pos` = count × percent, rounded) |
+| review count / score | store page `store.steampowered.com/app/4627010/` → tooltip "97% of the 355 user reviews" (same number the store shows); fallback `api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=…include_reviews` → `summary_filtered` (runs a few lower). `rev_pos` = count × percent, rounded |
 | reviews per day | `store.steampowered.com/appreviewhistogram/4627010` → `results.recent` (last ~30 days, UTC) |
 | individual reviews | `store.steampowered.com/appreviews/4627010?json=1&…` — **redirects to the store front page since 22 Oct 2026**; still tried each run, `reviews.json` is only rewritten when it answers |
 | followers | `steamcommunity.com/games/1373530/memberslistxml/?xml=1` → `<memberCount>` (needs a User-Agent header) |
