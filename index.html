@@ -185,6 +185,12 @@ th:first-child, td:first-child { text-align: left; }
       <div class="desc">Concurrent viewers in the Militsioner category, sampled about every 10 minutes.</div>
       <div class="chart" id="c-twitch"></div>
     </div>
+    <div class="card">
+      <h2>Twitch hours watched per day</h2>
+      <div class="desc">Viewers × time across the Militsioner category, per UTC day, from the 10-minute samples. Shows how much attention streams got, not just the peak.</div>
+      <div class="chart" id="c-twitch-hours"></div>
+      <div class="note-sm" id="n-twitch-hours"></div>
+    </div>
   </section>
 
   <h2 class="section">Launch comparison · days since launch</h2>
@@ -658,6 +664,25 @@ function launchChart() {
     : "") + "Comparison values are SteamDB daily figures.";
 }
 
+// Twitch hours watched per UTC day: each sample's viewers × time until the next sample (max 15 min).
+function twitchHours() {
+  const D = 24 * H, tw = DATA.filter((r) => r.tw_viewers != null);
+  const byDay = new Map();
+  tw.forEach((r, i) => {
+    const dt = Math.min(tw[i + 1] ? tw[i + 1].t - r.t : 10 * 60e3, 15 * 60e3);
+    const k = Math.floor(r.t / D) * D;
+    byDay.set(k, (byDay.get(k) || 0) + (r.tw_viewers * dt) / H);
+  });
+  const ks = [...byDay.keys()].sort((a, b) => a - b);
+  const dl = (t) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  barChart("c-twitch-hours", ks.map(dl), [{ name: "Hours watched", color: "--s1", vals: ks.map((k) => Math.round(byDay.get(k))) }]);
+  const total = ks.reduce((a, k) => a + byDay.get(k), 0);
+  const week = ks.filter((k) => k >= Math.floor(Date.now() / D) * D - 6 * D).reduce((a, k) => a + byDay.get(k), 0);
+  document.getElementById("n-twitch-hours").textContent = ks.length
+    ? `Last 7 days: ${fmt(week)} h · since ${dl(ks[0])}: ${fmt(total)} h. Today is still counting.`
+    : "";
+}
+
 function dailyCharts() {
   if (!DAILY) return;
   const from = Date.now() - 30 * 24 * H;
@@ -672,6 +697,7 @@ function render() {
   tiles(rows);
   charts(rows);
   dailyCharts();
+  twitchHours();
   launchChart();
   reviewSection();
   dailyPlayers();
