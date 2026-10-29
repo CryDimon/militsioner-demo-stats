@@ -34,6 +34,8 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
   their `steam` was filled from Steam's 48h series.
 - `data/reviews.json` — every Steam review of the demo, re-fetched each run:
   `{updated, topics[], items: [{t, up, lang, at, fo, deck, tags[]}]}` (`at` = playtime at review, `fo` = playtime forever, minutes).
+- `data/reviews-daily.json` — `{updated, days: [[t, up, down]]}`, one row per UTC day; each run merges the
+  histogram's last ~30 days in (newer counts win), so older days are kept.
 - `data/live.json` — current Twitch streams in the category + per-source errors.
 - `data/steamdb-daily.json` — static daily series (followers, Twitch peak viewers) from SteamDB CSV exports.
 - `data/launches.json` — static list of other launches the page compares the demo with ("days since launch" chart,
@@ -54,7 +56,9 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
 | demo players | `api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=4627010` |
 | Steam users online | `store.steampowered.com/stats/userdata.json` (48h series, "Steam users logged in") |
 | wishlist rank | position in `store.steampowered.com/search/results/?filter=popularwishlist&json=1` (pages of 100, first 1000) |
-| reviews | `store.steampowered.com/appreviews/4627010?json=1&filter=recent&num_per_page=100&cursor=…` |
+| review count / score | `api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=…include_reviews` → `summary_filtered` (`rev_pos` = count × percent, rounded) |
+| reviews per day | `store.steampowered.com/appreviewhistogram/4627010` → `results.recent` (last ~30 days, UTC) |
+| individual reviews | `store.steampowered.com/appreviews/4627010?json=1&…` — **redirects to the store front page since 22 Oct 2026**; still tried each run, `reviews.json` is only rewritten when it answers |
 | followers | `steamcommunity.com/games/1373530/memberslistxml/?xml=1` → `<memberCount>` (needs a User-Agent header) |
 | Twitch | `gql.twitch.tv/gql` with Twitch's public web Client-ID — unofficial; may break. Official Helix API needs keys the owner would have to create |
 

@@ -62,14 +62,26 @@ const wishlistRank = () =>
     return null;
   });
 
-// Steam user reviews of the demo.
+// Steam user reviews of the demo: review count and score from the official store API.
+// (store.steampowered.com/appreviews redirects to the store front page since 22 Oct 2026.)
 const reviews = () =>
   safe("reviews", async () => {
+    const input = { ids: [{ appid: DEMO_ID }], context: { language: "english", country_code: "US" }, data_request: { include_reviews: true } };
     const j = await (
-      await get(`https://store.steampowered.com/appreviews/${DEMO_ID}?json=1&language=all&purchase_type=all&num_per_page=0`)
+      await get(`https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`)
     ).json();
-    const q = j.query_summary;
-    return q ? { total: q.total_reviews, pos: q.total_positive, desc: q.review_score_desc } : null;
+    const item = j.response && j.response.store_items && j.response.store_items[0];
+    const q = item && item.reviews && item.reviews.summary_filtered;
+    return q ? { total: q.review_count, pos: Math.round((q.review_count * q.percent_positive) / 100), desc: q.review_score_label } : null;
+  });
+
+// Positive / negative reviews per day (UTC), last ~30 days, from the store's review histogram.
+const reviewDays = () =>
+  safe("review days", async () => {
+    const j = await (await get(`https://store.steampowered.com/appreviewhistogram/${DEMO_ID}?l=english&review_score_preference=0`)).json();
+    const recent = (j.results && j.results.recent) || [];
+    if (!recent.length) return null;
+    return recent.map((d) => [d.date * 1000, d.recommendations_up, d.recommendations_down]);
   });
 
 
@@ -154,7 +166,7 @@ const reviewList = () =>
     return [...out.values()].sort((a, b) => a.t - b.t);
   });
 
-const [demo, steam, rank, rev, tw, fol, revList] = await Promise.all([
+const [demo, steam, rank, rev, tw, fol, revList, revDays] = await Promise.all([
   demoPlayers(),
   steamTotal(),
   wishlistRank(),
@@ -162,6 +174,7 @@ const [demo, steam, rank, rev, tw, fol, revList] = await Promise.all([
   twitch(),
   followers(),
   reviewList(),
+  reviewDays(),
 ]);
 
 const row = {
@@ -215,5 +228,13 @@ await writeFile(FILE, JSON.stringify(history));
 
 if (revList && revList.length) {
   await writeFile("data/reviews.json", JSON.stringify({ updated: Date.now(), topics: Object.keys(TOPICS), items: revList }));
+}
+// Reviews per day: merge the histogram's last ~30 days into data/reviews-daily.json (newer counts win).
+if (revDays) {
+  let days = [];
+  try { days = JSON.parse(await readFile("data/reviews-daily.json", "utf8")).days || []; } catch {}
+  const m = new Map(days.map((d) => [d[0], d]));
+  for (const d of revDays) m.set(d[0], d);
+  await writeFile("data/reviews-daily.json", JSON.stringify({ updated: Date.now(), days: [...m.values()].sort((a, b) => a[0] - b[0]) }));
 }
 await writeFile("data/live.json", JSON.stringify({ updated: Date.now(), twitch_streams: tw ? tw.streams : null, errors: DEBUG }));

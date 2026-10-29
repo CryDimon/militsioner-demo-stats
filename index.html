@@ -199,6 +199,7 @@ th:first-child, td:first-child { text-align: left; }
   </section>
 
   <h2 class="section">Playtime &amp; reviews · all time since the demo launched <a href="https://store.steampowered.com/app/4627010/#app_reviews_hash" target="_blank" rel="noopener">Read reviews on Steam ↗</a></h2>
+  <div class="note-sm" id="n-reviews" style="margin:-4px 0 10px"></div>
   <section class="tiles" id="tiles2"></section>
   <section class="grid2">
     <div class="card">
@@ -209,7 +210,7 @@ th:first-child, td:first-child { text-align: left; }
     </div>
     <div class="card">
       <h2>Reviews per day</h2>
-      <div class="desc">New Steam reviews of the demo by day of posting.</div>
+      <div class="desc">New Steam reviews of the demo by day of posting (UTC).</div>
       <div class="legend"><span><i style="background:var(--s1)"></i>Positive</span><span><i style="background:var(--s2)"></i>Negative</span></div>
       <div class="chart" id="c-reviews-day"></div>
     </div>
@@ -462,7 +463,7 @@ function table() {
 
 
 /* ---------- playtime, reviews, twitch ---------- */
-let REVIEWS = null, LIVE = null;
+let REVIEWS = null, REVIEWS_DAILY = null, LIVE = null;
 const median = (a) => { const b = a.filter((x) => x != null).sort((x, y) => x - y); if (!b.length) return null; const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 const dur = (min) => min == null ? "—" : min < 60 ? Math.round(min) + " min" : (min / 60).toFixed(min < 600 ? 1 : 0) + " h";
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -505,7 +506,7 @@ function barChart(id, cats, series, opt = {}) {
       add("path", { d, fill: css(s.color) });
       base += v;
     });
-    if (i % every === 0 || i === cats.length - 1)
+    if ((i % every === 0 && cats.length - 1 - i >= every) || i === cats.length - 1)
       add("text", { x: x + bw / 2, y: Hh - 6, "text-anchor": "middle", "font-size": 11, fill: css("--muted") }).textContent = c;
     const hit = add("rect", { x: m.l + slot * i, y: m.t, width: slot, height: Hh - m.t - m.b, fill: "transparent" });
     const show = () => {
@@ -542,12 +543,19 @@ function reviewSection() {
   const last24 = items.filter((r) => r.t >= day);
   const fol = lastOf(DATA, "followers");
   const fol0 = (() => { for (const r of DATA) if (r.followers != null && r.t >= day) return r; return null; })();
+  const daily = (REVIEWS_DAILY && REVIEWS_DAILY.days) || [];
+  const week = daily.length ? daily.filter((d) => d[0] >= Date.now() - 7 * 24 * H).reduce((a, d) => ({ up: a.up + d[1], down: a.down + d[2] }), { up: 0, down: 0 }) : null;
+  const stale = REVIEWS && REVIEWS.updated && Date.now() - REVIEWS.updated > 24 * H;
+  document.getElementById("n-reviews").textContent = stale
+    ? `Playtime, topics and languages use reviews up to ${new Date(REVIEWS.updated).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}: Steam stopped serving individual reviews publicly. Review counts and reviews per day are live.`
+    : "";
   const deck = items.length ? (items.filter((r) => r.deck).length / items.length) * 100 : null;
   const t = [
     ["Median playtime at review", dur(median(items.map((r) => r.at))), `${fmt(items.length)} reviews`],
     ["Median total playtime", dur(median(items.map((r) => r.fo))), "reviewers' playtime so far"],
     ["Negative reviews: playtime", dur(median(neg.map((r) => r.at))), `median at review · positive: ${dur(median(pos.map((r) => r.at)))}`],
-    ["Reviews last 24h", fmt(last24.length), last24.length ? `${Math.round((last24.filter((r) => r.up).length / last24.length) * 100)}% positive` : "—"],
+    week ? ["Reviews last 7 days", fmt(week.up + week.down), week.up + week.down ? `${Math.round((week.up / (week.up + week.down)) * 100)}% positive` : "—"]
+      : ["Reviews last 24h", fmt(last24.length), last24.length ? `${Math.round((last24.filter((r) => r.up).length / last24.length) * 100)}% positive` : "—"],
     ["Steam Deck reviewers", deck == null ? "—" : fmt(deck, 0) + "%", "played mostly on Deck"],
     ["Community followers", fol ? fmt(fol.followers) : "—", fol && fol0 && fol.followers !== fol0.followers ? `${fol.followers - fol0.followers >= 0 ? "+" : ""}${fmt(fol.followers - fol0.followers)} in 24h` : "main game, Steam community"],
   ];
@@ -567,7 +575,13 @@ function reviewSection() {
   if (items.length) for (let d = dkey(items[0].t); d <= dkey(Date.now()); d += 24 * H) { const k = dkey(d + 12 * H); if (days[days.length - 1] !== k) days.push(k); }
   const per = (arr) => days.map((k) => arr.filter((r) => dkey(r.t) === k).length);
   const dl = (k) => new Date(k).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  barChart("c-reviews-day", days.map(dl), [
+  if (daily.length) {
+    const dlu = (t) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+    barChart("c-reviews-day", daily.map((d) => dlu(d[0])), [
+      { name: "Positive", color: "--s1", vals: daily.map((d) => d[1]) },
+      { name: "Negative", color: "--s2", vals: daily.map((d) => d[2]) },
+    ]);
+  } else barChart("c-reviews-day", days.map(dl), [
     { name: "Positive", color: "--s1", vals: per(pos) },
     { name: "Negative", color: "--s2", vals: per(neg) },
   ]);
@@ -675,6 +689,7 @@ async function load() {
     DATA = (await r.json()).sort((a, b) => a.t - b.t);
     if (!DAILY) { try { DAILY = await (await fetch(DATA_BASE + "steamdb-daily.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {} }
     if (!LAUNCHES.length) { try { LAUNCHES = await (await fetch(DATA_BASE + "launches.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {} }
+    try { REVIEWS_DAILY = await (await fetch(DATA_BASE + "reviews-daily.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
     try { REVIEWS = await (await fetch(DATA_BASE + "reviews.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
     try { LIVE = await (await fetch(DATA_BASE + "live.json?ts=" + Date.now(), { cache: "no-store" })).json(); } catch (e) {}
   } catch (e) {
