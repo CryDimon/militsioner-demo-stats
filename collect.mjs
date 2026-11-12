@@ -225,37 +225,6 @@ try {
   console.log(`merged back-fill: ${extra.length} rows`);
 } catch {}
 
-// One-off fix (12 Nov 2026): samples from 8 Nov 00:00 to 12 Nov 01:05 UTC stored the 30-day "Recent Reviews"
-// count instead of the all-time total. Re-estimate them as (first correct total) − (reviews posted after the
-// sample, from data/reviews-daily.json, spread evenly over each day) and mark them rev_est: 1. Runs once:
-// marked rows are skipped. Safe to delete after it has run.
-try {
-  const FROM = Date.UTC(2026, 10, 8), TO = Date.UTC(2026, 10, 12, 1, 5), DAY = 864e5;
-  const bad = history.filter((r) => r.t >= FROM && r.t < TO && r.rev_total != null && !r.rev_est);
-  const B = history.find((r) => r.t >= TO && r.rev_total != null);
-  const A = [...history].reverse().find((r) => r.t < FROM && r.rev_total != null);
-  if (bad.length && B && A) {
-    const cnt = new Map(JSON.parse(await readFile("data/reviews-daily.json", "utf8")).days.map((d) => [d[0], d[1] + d[2]]));
-    const after = (t) => {
-      let s = 0;
-      for (let d = Math.floor(t / DAY) * DAY; d <= B.t; d += DAY) {
-        const lo = Math.max(t, d), hi = Math.min(B.t, d + DAY);
-        if (hi > lo) s += ((cnt.get(d) || 0) * (hi - lo)) / DAY;
-      }
-      return s;
-    };
-    const share = B.rev_pos / B.rev_total;
-    for (const r of bad) {
-      r.rev_total = Math.max(A.rev_total, Math.min(B.rev_total, Math.round(B.rev_total - after(r.t))));
-      r.rev_pos = Math.round(r.rev_total * share);
-      r.rev_est = 1;
-    }
-    console.log(`re-estimated review totals of ${bad.length} samples`);
-  }
-} catch (e) {
-  DEBUG["review fix"] = e.message;
-}
-
 // Fill missing "steam" values (e.g. back-filled demo samples) from Steam's 48h series.
 if (steam && steam.series) {
   const ser = steam.series;

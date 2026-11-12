@@ -30,6 +30,7 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
 
 - `data/history.json` — array of samples, kept 60 days, sorted by `t` (ms, UTC):
   `t, demo, steam, rank, rev_total, rev_pos, rev_desc, tw_viewers, tw_channels, tw_followers, followers`.
+  Rows with `rev_est: 1` have estimated `rev_total`/`rev_pos` (8–12 Nov 2026, see Sources → review count).
   Rows with `src: "steamdb"` are a one-off back-fill of demo players (8–10 Oct) from a SteamDB CSV export;
   their `steam` was filled from Steam's 48h series.
 - `data/reviews.json` — every Steam review of the demo, re-fetched each run:
@@ -56,7 +57,7 @@ browser      ──fetch──▶  raw.githubusercontent.com/CryDimon/militsione
 | demo players | `api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=4627010` |
 | Steam users online | `store.steampowered.com/stats/userdata.json` (48h series, "Steam users logged in") |
 | wishlist rank | position in `store.steampowered.com/search/results/?filter=popularwishlist&json=1` (pages of 100, first 1000) |
-| review count / score | store page `store.steampowered.com/app/4627010/` → "All Reviews" tooltip "97% of the 443 user reviews **for this demo**" (same number the store shows). Since the demo turned 30 days old the page also has a "Recent Reviews" row (last 30 days) first — don't match it; 8–12 Nov 2026 samples in history hold that 30-day count by mistake; fallback `api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=…include_reviews` → `summary_filtered` (runs a few lower). `rev_pos` = count × percent, rounded |
+| review count / score | store page `store.steampowered.com/app/4627010/` → "All Reviews" tooltip "97% of the 443 user reviews **for this demo**" (same number the store shows). Since the demo turned 30 days old the page also has a "Recent Reviews" row (last 30 days) first — don't match it. Samples from 8 Nov 00:00 to 12 Nov 01:05 UTC had stored that 30-day count; a one-off run re-estimated their totals from `reviews-daily.json` and marked them `rev_est: 1`; fallback `api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=…include_reviews` → `summary_filtered` (runs a few lower). `rev_pos` = count × percent, rounded |
 | reviews per day | `store.steampowered.com/appreviewhistogram/4627010` → `results.recent` (last ~30 days, UTC) |
 | individual reviews | `store.steampowered.com/appreviews/4627010?json=1&…` — **redirects to the store front page since 22 Oct 2026**; still tried each run, `reviews.json` is only rewritten when it answers |
 | followers | `steamcommunity.com/games/1373530/memberslistxml/?xml=1` → `<memberCount>` (needs a User-Agent header) |
