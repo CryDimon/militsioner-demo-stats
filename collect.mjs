@@ -69,8 +69,11 @@ const reviews = () =>
   safe("reviews", async () => {
     try {
       const html = await (await get(`https://store.steampowered.com/app/${DEMO_ID}/?l=english&cc=us`, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
-      const m = html.match(/data-tooltip-html="(\d+)% of the ([\d,]+) user reviews/);
-      const d = html.match(/class="game_review_summary[^"]*"[^>]*>([^<]+)</);
+      // "All Reviews" row ("… user reviews for this demo …"). After 30 days the page also has a
+      // "Recent Reviews" row ("… in the last 30 days …") — never take that one.
+      const m = html.match(/data-tooltip-html="(\d+)% of the ([\d,]+) user reviews for this/);
+      const all = html.slice(html.indexOf('subtitle column all">All Reviews'));
+      const d = all.match(/class="game_review_summary[^"]*"[^>]*>([^<]+)</) || html.match(/class="game_review_summary[^"]*"[^>]*>([^<]+)</);
       if (m) {
         const total = Number(m[2].replace(/,/g, "")), pct = Number(m[1]);
         return { total, pos: Math.round((total * pct) / 100), desc: d ? d[1].trim() : null };
